@@ -1,0 +1,19 @@
+station 0 0
+station 0 1
+station 0 2
+station 10 0
+station 10 1
+station 10 2
+track 0 0 10 0 10
+track 0 1 10 1 10
+track 0 2 10 2 10
+switch 3 0
+switch 5 1
+track 3 0 5 1 2
+switch 1 2
+switch 3 1
+track 1 2 3 1 2
+switch 6 1
+switch 8 2
+track 6 1 8 2 2
+
