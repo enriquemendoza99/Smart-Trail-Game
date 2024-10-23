@@ -1,0 +1,7 @@
+station 0 0
+station 5 0
+track 0 0 5 0 5
+station 5 1
+switch 2 0
+track 2 0 3 1
+track 3 1 5 1 2
