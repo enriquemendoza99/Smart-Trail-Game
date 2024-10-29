@@ -1,4 +1,4 @@
-# SmartRail Project Template
+# SmartRail Project Template Group 02
 
 Inside your project you should have the following structure:
 ## At the top level:
