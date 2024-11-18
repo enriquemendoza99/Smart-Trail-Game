@@ -1,4 +1,4 @@
-# SmartRail Project Template Group 2 Enrique Mendoza Alex Leon
+# SmartRail Project Template Group 2 Enrique Mendoza Alexander Leon
 
 Inside your project you should have the following structure:
 ## At the top level:
