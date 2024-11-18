@@ -8,10 +8,9 @@ import javafx.scene.paint.Color;
 import javafx.geometry.Insets;
 import javafx.scene.control.Alert.AlertType;
 import javafx.application.Platform;
+import javafx.animation.AnimationTimer;
 import java.util.*;
 import java.io.*;
-import javafx.animation.*;
-import javafx.util.Duration;
 
 public class SmartRailGUI extends Application implements TrainGUI {
     private Canvas railCanvas;
@@ -23,7 +22,6 @@ public class SmartRailGUI extends Application implements TrainGUI {
     private static final double SCALE_FACTOR = 50.0;
     private static final double CANVAS_PADDING = 50.0;
     private Pane canvasContainer;
-    private Timeline updateTimeline;
 
     @Override
     public void start(Stage primaryStage) {
@@ -46,9 +44,6 @@ public class SmartRailGUI extends Application implements TrainGUI {
             primaryStage.setTitle("SmartRail Simulator");
             primaryStage.setScene(scene);
 
-            // Setup continuous rendering
-            setupUpdateTimeline();
-
             // Load configuration
             List<String> args = getParameters().getRaw();
             if (args.isEmpty()) {
@@ -63,16 +58,31 @@ public class SmartRailGUI extends Application implements TrainGUI {
             // Start simulation threads
             startSimulation();
 
+            // Start render loop
+            startRenderLoop();
+
         } catch (Exception e) {
             showError("Error", "Failed to start application: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    private void setupUpdateTimeline() {
-        updateTimeline = new Timeline(new KeyFrame(Duration.millis(50), e -> drawRailNetwork()));
-        updateTimeline.setCycleCount(Timeline.INDEFINITE);
-        updateTimeline.play();
+    private void startRenderLoop() {
+        AnimationTimer timer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                drawRailNetwork();
+            }
+        };
+        timer.start();
+    }
+
+    private void createCanvas() {
+        railCanvas = new Canvas(600, 500);
+        canvasContainer.getChildren().add(railCanvas);
+
+        railCanvas.widthProperty().bind(canvasContainer.widthProperty());
+        railCanvas.heightProperty().bind(canvasContainer.heightProperty());
     }
 
     private VBox createControlPanel() {
@@ -108,6 +118,9 @@ public class SmartRailGUI extends Application implements TrainGUI {
         GraphicsContext gc = railCanvas.getGraphicsContext2D();
         gc.clearRect(0, 0, railCanvas.getWidth(), railCanvas.getHeight());
 
+        // Draw grid
+        drawGrid(gc);
+
         // Draw tracks
         for (Component component : components) {
             if (component instanceof Track) {
@@ -126,6 +139,18 @@ public class SmartRailGUI extends Application implements TrainGUI {
         }
     }
 
+    private void drawGrid(GraphicsContext gc) {
+        gc.setStroke(Color.LIGHTGRAY);
+        gc.setLineWidth(0.5);
+
+        for (int i = 0; i <= 10; i++) {
+            double x = transformX(i);
+            double y = transformY(i);
+            gc.strokeLine(x, 0, x, railCanvas.getHeight());
+            gc.strokeLine(0, y, railCanvas.getWidth(), y);
+        }
+    }
+
     private void drawTrack(Track track, GraphicsContext gc) {
         gc.setStroke(track.isLocked() ? Color.RED : Color.BLACK);
         gc.setLineWidth(2);
@@ -135,33 +160,28 @@ public class SmartRailGUI extends Application implements TrainGUI {
         double y2 = transformY(track.getEndY());
         gc.strokeLine(x1, y1, x2, y2);
 
-        // Draw track segments
+        // Draw segments
         if (track.getSegments() > 1) {
             gc.setFill(Color.BLACK);
-            double dx = (x2 - x1) / track.getSegments();
-            double dy = (y2 - y1) / track.getSegments();
             for (int i = 1; i < track.getSegments(); i++) {
-                double x = x1 + dx * i;
-                double y = y1 + dy * i;
+                double progress = (double) i / track.getSegments();
+                double x = x1 + (x2 - x1) * progress;
+                double y = y1 + (y2 - y1) * progress;
                 gc.fillOval(x - 2, y - 2, 4, 4);
             }
         }
     }
 
     private void drawStation(Station station, GraphicsContext gc) {
+        gc.setFill(station.isLocked() ? Color.RED : Color.GREEN);
         double x = transformX(station.getX());
         double y = transformY(station.getY());
-
-        // Draw station background
-        gc.setFill(station.isLocked() ? Color.RED : Color.GREEN);
         gc.fillRect(x - 15, y - 15, 30, 30);
 
-        // Draw station border
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(2);
         gc.strokeRect(x - 15, y - 15, 30, 30);
 
-        // Draw station name
         gc.setFill(Color.WHITE);
         gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
         gc.fillText(station.getName(), x, y + 5);
@@ -180,22 +200,12 @@ public class SmartRailGUI extends Application implements TrainGUI {
         double x = transformX(train.getX());
         double y = transformY(train.getY());
 
-        // Draw train body
         gc.setFill(trainColor);
         gc.fillOval(x - 10, y - 10, 20, 20);
 
-        // Draw train border
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(2);
         gc.strokeOval(x - 10, y - 10, 20, 20);
-    }
-
-    private void createCanvas() {
-        railCanvas = new Canvas(600, 500);
-        canvasContainer.getChildren().add(railCanvas);
-
-        railCanvas.widthProperty().bind(canvasContainer.widthProperty());
-        railCanvas.heightProperty().bind(canvasContainer.heightProperty());
     }
 
     private double transformX(double x) {
@@ -256,7 +266,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
 
     @Override
     public void updateTrain(Train train) {
-        // No need to explicitly call drawRailNetwork here as we have the update timeline
+        // Let the render loop handle the update
     }
 
     @Override
@@ -300,6 +310,10 @@ public class SmartRailGUI extends Application implements TrainGUI {
     }
 
     public static void main(String[] args) {
+        if (args.length < 1) {
+            System.out.println("Usage: java SmartRailGUI <config-file>");
+            System.exit(1);
+        }
         launch(args);
     }
 }

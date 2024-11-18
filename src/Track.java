@@ -100,32 +100,21 @@ public class Track extends Component {
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
 
-            new Thread(() -> {
+            Thread moveThread = new Thread(() -> {
                 try {
                     // Number of steps and delay for visible movement
-                    int steps = 50;  // More steps for smoother movement
-                    int delay = 100; // Milliseconds between each step
+                    int steps = 20;  // Number of intermediate positions
+                    long delay = 200; // Milliseconds between updates (slower movement)
 
-                    // Move the train step by step along the track
+                    // Move the train step by step
                     for (int i = 0; i <= steps; i++) {
                         final double progress = (double) i / steps;
                         // Calculate new position
-                        double newX = startX + (endX - startX) * progress;
-                        double newY = startY + (endY - startY) * progress;
-
-                        // Update train position
-                        msg.getTrain().x = newX;
-                        msg.getTrain().y = newY;
+                        msg.getTrain().x = startX + (endX - startX) * progress;
+                        msg.getTrain().y = startY + (endY - startY) * progress;
                         msg.getTrain().updateGUI();
-
-                        Thread.sleep(delay);
+                        Thread.sleep(delay);  // Longer delay for visibility
                     }
-
-                    // Ensure final position
-                    msg.getTrain().x = endX;
-                    msg.getTrain().y = endY;
-                    msg.getTrain().updateGUI();
-                    Thread.sleep(delay);
 
                     // Send move complete message
                     Message complete = new Message(Message.Type.MOVE_COMPLETE,
@@ -137,7 +126,10 @@ public class Track extends Component {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
-            }).start();
+            });
+
+            moveThread.setDaemon(true);
+            moveThread.start();
         }
     }
 

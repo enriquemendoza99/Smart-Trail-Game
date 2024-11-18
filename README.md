@@ -1,9 +1,9 @@
-# SmartRail Project Template Group 2 Enrique Mendoza Alex Leon
+# SmartRail Project Template Group 2 
 
 Inside your project you should have the following structure:
 ## At the top level:
 ### README.md
-This file right here. Make sure you edit it to describe your project
+This file right here. Make sure you edit it to describe your.
 ### .gitignore
 This file tells git which files to you should not track with version control
 ### Jar file(s)
