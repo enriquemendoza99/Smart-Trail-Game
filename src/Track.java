@@ -3,11 +3,12 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
-
 public class Track extends Component {
     private final double startX, startY, endX, endY;
     private final int segments;
     private Set<String> processedMessageIds = new HashSet<>();
+    private static final int MOVEMENT_STEPS = 100;
+    private static final long MOVEMENT_DELAY = 100;
 
     public Track(double startX, double startY, double endX, double endY, int segments) {
         super(startX, startY);
@@ -103,19 +104,22 @@ public class Track extends Component {
 
             Thread moveThread = new Thread(() -> {
                 try {
-                    // Number of steps and delay for visible movement
-                    int steps = 20;  // Number of intermediate positions
-                    long delay = 200; // Milliseconds between updates (slower movement)
-
                     // Move the train step by step
-                    for (int i = 0; i <= steps; i++) {
-                        final double progress = (double) i / steps;
+                    for (int i = 0; i <= MOVEMENT_STEPS; i++) {
+                        final double progress = (double) i / MOVEMENT_STEPS;
                         // Calculate new position
-                        msg.getTrain().x = startX + (endX - startX) * progress;
-                        msg.getTrain().y = startY + (endY - startY) * progress;
+                        double newX = startX + (endX - startX) * progress;
+                        double newY = startY + (endY - startY) * progress;
+                        msg.getTrain().x = newX;
+                        msg.getTrain().y = newY;
                         msg.getTrain().updateGUI();
-                        Thread.sleep(delay);  // Longer delay for visibility
+                        Thread.sleep(MOVEMENT_DELAY);
                     }
+
+                    // Update the train's position to the end of the track
+                    msg.getTrain().x = endX;
+                    msg.getTrain().y = endY;
+                    msg.getTrain().updateGUI();
 
                     // Send move complete message
                     Message complete = new Message(Message.Type.MOVE_COMPLETE,

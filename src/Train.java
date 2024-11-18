@@ -3,18 +3,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import javafx.application.Platform;
 
-
 public class Train extends Component {
     public enum Status {
         IDLE,
         SEEKING_PATH,
         LOCKING_PATH,
-        MOVING
+        MOVING,
+        EXITED
     }
 
     private Status status = Status.IDLE;
-    private Component currentLocation;
-    private Component destination;
+    private Station currentStation;
+    private Station destination;
     private List<Component> currentPath;
     private int currentPathIndex;
     private TrainGUI gui;
@@ -28,7 +28,7 @@ public class Train extends Component {
     }
 
     public void setInitialLocation(Station station) {
-        this.currentLocation = station;
+        this.currentStation = station;
         updatePosition(station);
         station.lock(this);
         updateGUI();
@@ -47,7 +47,7 @@ public class Train extends Component {
             return;
         }
 
-        if (destination == currentLocation) {
+        if (destination == currentStation) {
             System.out.println("Train already at destination");
             return;
         }
@@ -60,9 +60,9 @@ public class Train extends Component {
     }
 
     private void findPath() {
-        Message msg = new Message(Message.Type.FIND_PATH, this, currentLocation, destination);
-        System.out.println("Sending FIND_PATH message from: " + currentLocation.getId());
-        sendMessage(msg, currentLocation);
+        Message msg = new Message(Message.Type.FIND_PATH, this, currentStation, destination);
+        System.out.println("Sending FIND_PATH message from: " + currentStation.getId());
+        sendMessage(msg, currentStation);
     }
 
     @Override
@@ -124,29 +124,33 @@ public class Train extends Component {
             return;
         }
 
-        Component previousLocation = currentLocation;
-        currentLocation = msg.getSource();
+        Station previousStation = currentStation;
+        currentStation = (Station) msg.getSource();
 
-        if (previousLocation != null && previousLocation != currentLocation) {
-            Message unlockMsg = new Message(Message.Type.UNLOCK_REQUEST, this, this, previousLocation);
-            sendMessage(unlockMsg, previousLocation);
-            System.out.println("Unlocked previous location: " + previousLocation.getId());
+        if (previousStation != null && previousStation != currentStation) {
+            Message unlockMsg = new Message(Message.Type.UNLOCK_REQUEST, this, this, previousStation);
+            sendMessage(unlockMsg, previousStation);
+            System.out.println("Unlocked previous station: " + previousStation.getId());
         }
 
-        if (currentLocation == destination) {
+        if (currentStation == destination) {
             System.out.println("Reached destination!");
-            status = Status.IDLE;
+            Message unlockMsg = new Message(Message.Type.UNLOCK_REQUEST, this, this, destination);
+            sendMessage(unlockMsg, destination);
+            System.out.println("Unlocked destination station: " + destination.getId());
+            status = Status.EXITED;
             currentPath = null;
             currentPathIndex = 0;
+            updateGUI();
+            gui.removeTrainFromSystem(this);
         } else {
             System.out.println("Moving to next component in path");
             moveToNext();
         }
-        updateGUI();
     }
 
     private void requestLock() {
-        Message msg = new Message(Message.Type.LOCK_REQUEST, this, currentLocation, destination);
+        Message msg = new Message(Message.Type.LOCK_REQUEST, this, currentStation, destination);
         msg.setPath(currentPath);
         System.out.println("Requesting lock for path starting with: " + currentPath.get(currentPathIndex).getId());
         sendMessage(msg, currentPath.get(currentPathIndex));
@@ -174,15 +178,18 @@ public class Train extends Component {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
+            } else if (next instanceof Station) {
+                this.currentStation = (Station) next;
+                updatePosition(currentStation);
             }
 
-            Message msg = new Message(Message.Type.MOVE_REQUEST, this, currentLocation, next);
+            Message msg = new Message(Message.Type.MOVE_REQUEST, this, currentStation, next);
             sendMessage(msg, next);
         } else {
             System.out.println("No more components to move to");
-            if (currentLocation != destination) {
+            if (currentStation != destination) {
                 updatePosition(destination);
-                status = Status.IDLE;
+                status = Status.EXITED;
                 updateGUI();
             }
         }
@@ -192,9 +199,15 @@ public class Train extends Component {
         if (currentPath != null) {
             System.out.println("Unlocking path components:");
             for (Component component : currentPath) {
-                System.out.println("  - Unlocking " + component.getId());
-                Message msg = new Message(Message.Type.UNLOCK_REQUEST, this, this, component);
-                sendMessage(msg, component);
+                if (component instanceof Station) {
+                    System.out.println("  - Unlocking station " + component.getId());
+                    Message msg = new Message(Message.Type.UNLOCK_REQUEST, this, this, component);
+                    sendMessage(msg, component);
+                } else if (component instanceof Track) {
+                    System.out.println("  - Unlocking track " + component.getId());
+                    Message msg = new Message(Message.Type.UNLOCK_REQUEST, this, this, component);
+                    sendMessage(msg, component);
+                }
             }
             currentPath = null;
         }
@@ -202,8 +215,13 @@ public class Train extends Component {
 
     public void updateGUI() {
         Platform.runLater(() -> {
-            gui.updateTrain(this);
-            System.out.println("Updated GUI with train position: (" + x + "," + y + "), status: " + status);
+            if (status != Status.EXITED) {
+                gui.updateTrain(this);
+                System.out.println("Updated GUI with train position: (" + x + "," + y + "), status: " + status);
+            } else {
+                System.out.println("Train has exited the system, removing it from GUI");
+                gui.removeTrain(this);
+            }
         });
     }
 
@@ -211,12 +229,11 @@ public class Train extends Component {
         return status;
     }
 
-    public Component getCurrentLocation() {
-
-        return currentLocation;
+    public Station getCurrentStation() {
+        return currentStation;
     }
 
-    public Component getDestination() {
+    public Station getDestination() {
         return destination;
     }
 }

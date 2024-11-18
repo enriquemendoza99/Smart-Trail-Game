@@ -146,15 +146,22 @@ public class ConfigurationLoader {
     }
 
     private void validateConfiguration() throws IOException {
+        if (components.size() == 0) {
+            throw new IOException("Invalid configuration: no components found");
+        }
+
         // Check for track crossings
-        for (int i = 0; i < components.size(); i++) {
-            if (!(components.get(i) instanceof Track)) continue;
-            Track t1 = (Track) components.get(i);
+        List<Track> tracks = new ArrayList<>();
+        for (Component comp : components) {
+            if (comp instanceof Track) {
+                tracks.add((Track) comp);
+            }
+        }
 
-            for (int j = i + 1; j < components.size(); j++) {
-                if (!(components.get(j) instanceof Track)) continue;
-                Track t2 = (Track) components.get(j);
-
+        for (int i = 0; i < tracks.size(); i++) {
+            Track t1 = tracks.get(i);
+            for (int j = i + 1; j < tracks.size(); j++) {
+                Track t2 = tracks.get(j);
                 if (tracksIntersect(t1, t2)) {
                     throw new IOException("Invalid configuration: tracks cross each other");
                 }

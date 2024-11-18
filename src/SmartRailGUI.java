@@ -12,7 +12,6 @@ import javafx.animation.AnimationTimer;
 import java.util.*;
 import java.io.*;
 
-
 public class SmartRailGUI extends Application implements TrainGUI {
     private Canvas railCanvas;
     private List<Component> components = new ArrayList<>();
@@ -20,6 +19,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
     private List<Station> stations = new ArrayList<>();
     private ComboBox<Station> sourceStationBox;
     private ComboBox<Station> destStationBox;
+    private Button addTrainButton;
     private static final double SCALE_FACTOR = 50.0;
     private static final double CANVAS_PADDING = 50.0;
     private Pane canvasContainer;
@@ -99,7 +99,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
         destStationBox = new ComboBox<>();
         destStationBox.setMaxWidth(Double.MAX_VALUE);
 
-        Button addTrainButton = new Button("Add Train");
+        addTrainButton = new Button("Add Train");
         addTrainButton.setMaxWidth(Double.MAX_VALUE);
         addTrainButton.setOnAction(e -> addNewTrain());
 
@@ -190,23 +190,29 @@ public class SmartRailGUI extends Application implements TrainGUI {
 
     private void drawTrain(Train train, GraphicsContext gc) {
         Color trainColor;
-        switch (train.getStatus()) {
-            case IDLE: trainColor = Color.GRAY; break;
-            case SEEKING_PATH: trainColor = Color.YELLOW; break;
-            case LOCKING_PATH: trainColor = Color.PURPLE; break;
-            case MOVING: trainColor = Color.GREEN; break;
-            default: trainColor = Color.BLACK;
+        if (train.getStatus() != null) {
+            switch (train.getStatus()) {
+                case IDLE: trainColor = Color.GRAY; break;
+                case SEEKING_PATH: trainColor = Color.YELLOW; break;
+                case LOCKING_PATH: trainColor = Color.PURPLE; break;
+                case MOVING: trainColor = Color.GREEN; break;
+                case EXITED: trainColor = Color.TRANSPARENT; break;
+                default: trainColor = Color.BLACK;
+            }
+        } else {
+            trainColor = Color.BLACK;
         }
 
         double x = transformX(train.getX());
         double y = transformY(train.getY());
 
         gc.setFill(trainColor);
-        gc.fillOval(x - 10, y - 10, 20, 20);
-
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(2);
-        gc.strokeOval(x - 10, y - 10, 20, 20);
+        if (trainColor != Color.TRANSPARENT) {
+            gc.fillOval(x - 10, y - 10, 20, 20);
+            gc.setStroke(Color.BLACK);
+            gc.setLineWidth(2);
+            gc.strokeOval(x - 10, y - 10, 20, 20);
+        }
     }
 
     private double transformX(double x) {
@@ -239,6 +245,18 @@ public class SmartRailGUI extends Application implements TrainGUI {
         trainThread.setDaemon(true);
         trainThread.start();
 
+        // Check if there are any other trains currently moving
+        for (Train t : trains) {
+            if (t.getStatus() == Train.Status.MOVING) {
+                train.setDestination(dest);
+                sourceStationBox.setDisable(true);
+                destStationBox.setDisable(true);
+                addTrainButton.setDisable(true);
+                return;
+            }
+        }
+
+        // If no other trains are moving, set the destination for the new train
         train.setDestination(dest);
     }
 
@@ -267,7 +285,9 @@ public class SmartRailGUI extends Application implements TrainGUI {
 
     @Override
     public void updateTrain(Train train) {
-        // Let the render loop handle the update
+        Platform.runLater(() -> {
+            drawRailNetwork();
+        });
     }
 
     @Override
@@ -289,6 +309,32 @@ public class SmartRailGUI extends Application implements TrainGUI {
             alert.setHeaderText(null);
             alert.setContentText("Train could not secure the path to the destination.");
             alert.showAndWait();
+        });
+    }
+
+    @Override
+    public void removeTrain(Train train) {
+        Platform.runLater(() -> {
+            trains.remove(train);
+            drawRailNetwork();
+        });
+    }
+
+    @Override
+    public void enableOtherTrains() {
+        Platform.runLater(() -> {
+            sourceStationBox.setDisable(false);
+            destStationBox.setDisable(false);
+            addTrainButton.setDisable(false);
+        });
+    }
+
+    @Override
+    public void removeTrainFromSystem(Train train) {
+        Platform.runLater(() -> {
+            trains.remove(train);
+            enableOtherTrains();
+            drawRailNetwork();
         });
     }
 

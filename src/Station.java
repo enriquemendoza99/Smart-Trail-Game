@@ -3,7 +3,6 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
-
 public class Station extends Component {
     private String name;
     private Set<String> processedMessageIds = new HashSet<>();
