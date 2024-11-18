@@ -7,8 +7,6 @@ public class Track extends Component {
     private final double startX, startY, endX, endY;
     private final int segments;
     private Set<String> processedMessageIds = new HashSet<>();
-    private static final int MOVEMENT_STEPS = 20;  // Number of visible steps
-    private static final long STEP_DELAY = 200;    // Milliseconds between steps
 
     public Track(double startX, double startY, double endX, double endY, int segments) {
         super(startX, startY);
@@ -102,47 +100,44 @@ public class Track extends Component {
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
 
-            Thread moveThread = new Thread(() -> {
+            new Thread(() -> {
                 try {
-                    // Initial position
-                    msg.getTrain().x = startX;
-                    msg.getTrain().y = startY;
-                    msg.getTrain().updateGUI();
-                    Thread.sleep(STEP_DELAY);
+                    // Number of steps and delay for visible movement
+                    int steps = 50;  // More steps for smoother movement
+                    int delay = 100; // Milliseconds between each step
 
-                    // Move in visible steps
-                    for (int i = 1; i <= MOVEMENT_STEPS; i++) {
-                        double progress = (double) i / MOVEMENT_STEPS;
+                    // Move the train step by step along the track
+                    for (int i = 0; i <= steps; i++) {
+                        final double progress = (double) i / steps;
                         // Calculate new position
-                        msg.getTrain().x = startX + (endX - startX) * progress;
-                        msg.getTrain().y = startY + (endY - startY) * progress;
-                        // Update GUI
+                        double newX = startX + (endX - startX) * progress;
+                        double newY = startY + (endY - startY) * progress;
+
+                        // Update train position
+                        msg.getTrain().x = newX;
+                        msg.getTrain().y = newY;
                         msg.getTrain().updateGUI();
-                        // Wait before next step
-                        Thread.sleep(STEP_DELAY);
+
+                        Thread.sleep(delay);
                     }
 
-                    // Ensure final position is exact
+                    // Ensure final position
                     msg.getTrain().x = endX;
                     msg.getTrain().y = endY;
                     msg.getTrain().updateGUI();
-                    Thread.sleep(STEP_DELAY);
+                    Thread.sleep(delay);
 
-                    // Complete movement
+                    // Send move complete message
                     Message complete = new Message(Message.Type.MOVE_COMPLETE,
                             msg.getTrain(),
                             this,
                             msg.getTrain());
                     complete.setSuccess(true);
                     sendMessage(complete, msg.getTrain());
-
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
-            });
-
-            moveThread.setDaemon(true);
-            moveThread.start();
+            }).start();
         }
     }
 
