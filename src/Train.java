@@ -211,6 +211,7 @@ public class Train extends Component {
     }
 
     public Component getCurrentLocation() {
+
         return currentLocation;
     }
 
