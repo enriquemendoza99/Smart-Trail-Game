@@ -8,7 +8,7 @@ public class Track extends Component {
     private final int segments;
     private Set<String> processedMessageIds = new HashSet<>();
     private static final int MOVEMENT_STEPS = 100;
-    private static final long MOVEMENT_DELAY = 100;
+    private static final long MOVEMENT_DELAY = 1000; // 1 second delay between steps
 
     public Track(double startX, double startY, double endX, double endY, int segments) {
         super(startX, startY);
@@ -44,6 +44,47 @@ public class Track extends Component {
             case UNLOCK_REQUEST:
                 handleUnlockRequest(msg);
                 break;
+        }
+    }
+
+    private void handleMoveRequest(Message msg) {
+        System.out.println("Track " + getId() + " handling move request");
+        if (!isLocked || occupyingTrain == msg.getTrain()) {
+            lock(msg.getTrain());
+
+            Thread moveThread = new Thread(() -> {
+                try {
+                    // Move the train step by step
+                    for (int i = 0; i <= MOVEMENT_STEPS; i++) {
+                        final double progress = (double) i / MOVEMENT_STEPS;
+                        // Calculate new position
+                        double newX = startX + (endX - startX) * progress;
+                        double newY = startY + (endY - startY) * progress;
+                        msg.getTrain().x = newX;
+                        msg.getTrain().y = newY;
+                        msg.getTrain().updateGUI();
+                        Thread.sleep(MOVEMENT_DELAY);
+                    }
+
+                    // Update the train's position to the end of the track
+                    msg.getTrain().x = endX;
+                    msg.getTrain().y = endY;
+                    msg.getTrain().updateGUI();
+
+                    // Send move complete message
+                    Message complete = new Message(Message.Type.MOVE_COMPLETE,
+                            msg.getTrain(),
+                            this,
+                            msg.getTrain());
+                    complete.setSuccess(true);
+                    sendMessage(complete, msg.getTrain());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+
+            moveThread.setDaemon(true);
+            moveThread.start();
         }
     }
 
@@ -94,47 +135,6 @@ public class Track extends Component {
             Message response = new Message(Message.Type.LOCK_RESPONSE, msg.getTrain(), this, msg.getTrain());
             response.setSuccess(false);
             sendMessage(response, msg.getTrain());
-        }
-    }
-
-    private void handleMoveRequest(Message msg) {
-        System.out.println("Track " + getId() + " handling move request");
-        if (!isLocked || occupyingTrain == msg.getTrain()) {
-            lock(msg.getTrain());
-
-            Thread moveThread = new Thread(() -> {
-                try {
-                    // Move the train step by step
-                    for (int i = 0; i <= MOVEMENT_STEPS; i++) {
-                        final double progress = (double) i / MOVEMENT_STEPS;
-                        // Calculate new position
-                        double newX = startX + (endX - startX) * progress;
-                        double newY = startY + (endY - startY) * progress;
-                        msg.getTrain().x = newX;
-                        msg.getTrain().y = newY;
-                        msg.getTrain().updateGUI();
-                        Thread.sleep(MOVEMENT_DELAY);
-                    }
-
-                    // Update the train's position to the end of the track
-                    msg.getTrain().x = endX;
-                    msg.getTrain().y = endY;
-                    msg.getTrain().updateGUI();
-
-                    // Send move complete message
-                    Message complete = new Message(Message.Type.MOVE_COMPLETE,
-                            msg.getTrain(),
-                            this,
-                            msg.getTrain());
-                    complete.setSuccess(true);
-                    sendMessage(complete, msg.getTrain());
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            });
-
-            moveThread.setDaemon(true);
-            moveThread.start();
         }
     }
 

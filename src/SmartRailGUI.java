@@ -23,6 +23,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
     private static final double SCALE_FACTOR = 50.0;
     private static final double CANVAS_PADDING = 50.0;
     private Pane canvasContainer;
+    private boolean isTrainMoving = false;
 
     @Override
     public void start(Stage primaryStage) {
@@ -248,7 +249,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
         // Check if there are any other trains currently moving
         for (Train t : trains) {
             if (t.getStatus() == Train.Status.MOVING) {
-                train.setDestination(dest);
+                isTrainMoving = true;
                 sourceStationBox.setDisable(true);
                 destStationBox.setDisable(true);
                 addTrainButton.setDisable(true);
@@ -258,6 +259,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
 
         // If no other trains are moving, set the destination for the new train
         train.setDestination(dest);
+        isTrainMoving = true;
     }
 
     private void loadConfiguration(String filename) {
@@ -286,7 +288,14 @@ public class SmartRailGUI extends Application implements TrainGUI {
     @Override
     public void updateTrain(Train train) {
         Platform.runLater(() -> {
-            drawRailNetwork();
+            if (train.getStatus() != Train.Status.EXITED) {
+                drawRailNetwork();
+            } else {
+                isTrainMoving = false;
+                sourceStationBox.setDisable(false);
+                destStationBox.setDisable(false);
+                addTrainButton.setDisable(false);
+            }
         });
     }
 
@@ -326,6 +335,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
             sourceStationBox.setDisable(false);
             destStationBox.setDisable(false);
             addTrainButton.setDisable(false);
+            isTrainMoving = false;
         });
     }
 

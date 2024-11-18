@@ -18,7 +18,7 @@ public class Train extends Component {
     private List<Component> currentPath;
     private int currentPathIndex;
     private TrainGUI gui;
-    private static final long MOVEMENT_DELAY = 100; // Delay for GUI updates
+    private static final long MOVEMENT_DELAY = 1000; // 1 second delay between steps
 
     public Train(double x, double y, TrainGUI gui) {
         super(x, y);
@@ -138,11 +138,21 @@ public class Train extends Component {
             Message unlockMsg = new Message(Message.Type.UNLOCK_REQUEST, this, this, destination);
             sendMessage(unlockMsg, destination);
             System.out.println("Unlocked destination station: " + destination.getId());
+
+            // Unlock the path components
+            for (Component component : currentPath) {
+                if (component instanceof Track) {
+                    Message trackUnlockMsg = new Message(Message.Type.UNLOCK_REQUEST, this, this, component);
+                    sendMessage(trackUnlockMsg, component);
+                    System.out.println("Unlocked track: " + component.getId());
+                }
+            }
+
             status = Status.EXITED;
             currentPath = null;
             currentPathIndex = 0;
             updateGUI();
-            gui.removeTrainFromSystem(this);
+            gui.enableOtherTrains();
         } else {
             System.out.println("Moving to next component in path");
             moveToNext();
@@ -174,7 +184,7 @@ public class Train extends Component {
                 this.y = track.getStartY();
                 updateGUI();
                 try {
-                    Thread.sleep(MOVEMENT_DELAY); // Small delay before movement
+                    Thread.sleep(MOVEMENT_DELAY); // 1 second delay
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -215,7 +225,7 @@ public class Train extends Component {
 
     public void updateGUI() {
         Platform.runLater(() -> {
-            if (status != Status.EXITED) {
+            if (status != Train.Status.EXITED) {
                 gui.updateTrain(this);
                 System.out.println("Updated GUI with train position: (" + x + "," + y + "), status: " + status);
             } else {
