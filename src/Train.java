@@ -1,5 +1,6 @@
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
 import javafx.application.Platform;
 
 public class Train extends Component {
@@ -16,7 +17,7 @@ public class Train extends Component {
     private List<Component> currentPath;
     private int currentPathIndex;
     private TrainGUI gui;
-    private static final long STATION_DELAY = 2000; // 2 second delay at stations
+    private static final long MOVEMENT_DELAY = 100; // Delay for GUI updates
 
     public Train(double x, double y, TrainGUI gui) {
         super(x, y);
@@ -27,11 +28,16 @@ public class Train extends Component {
 
     public void setInitialLocation(Station station) {
         this.currentLocation = station;
-        this.x = station.getX();
-        this.y = station.getY();
+        updatePosition(station);
         station.lock(this);
         updateGUI();
         System.out.println("Train set initial location: " + station.getName());
+    }
+
+    private void updatePosition(Component component) {
+        this.x = component.getX();
+        this.y = component.getY();
+        System.out.println("Updated train position to: (" + x + "," + y + ")");
     }
 
     public void setDestination(Station destination) {
@@ -39,9 +45,15 @@ public class Train extends Component {
             System.out.println("Train busy, cannot set destination");
             return;
         }
+
+        if (destination == currentLocation) {
+            System.out.println("Train already at destination");
+            return;
+        }
+
         this.destination = destination;
-        this.status = Status.SEEKING_PATH;
-        System.out.println("Train seeking path to: " + destination.getName());
+        status = Status.SEEKING_PATH;
+        System.out.println("Train seeking path to: " + destination.getName() + ", current status: " + status);
         findPath();
         updateGUI();
     }
@@ -54,7 +66,7 @@ public class Train extends Component {
 
     @Override
     protected void processMessage(Message msg) {
-        System.out.println("Train received message: " + msg.getType());
+        System.out.println("Train received message: " + msg.getType() + ", current status: " + status);
         switch (msg.getType()) {
             case PATH_RESPONSE:
                 handlePathResponse(msg);
@@ -73,12 +85,12 @@ public class Train extends Component {
         System.out.println("Train handling path response");
         if (msg.getPath() != null && !msg.getPath().isEmpty()) {
             currentPath = new ArrayList<>(msg.getPath());
+            Collections.reverse(currentPath);
             currentPathIndex = 0;
             status = Status.LOCKING_PATH;
-            System.out.println("Path found! Path size: " + currentPath.size());
-            System.out.println("Path components: ");
+            System.out.println("Found path with " + currentPath.size() + " components:");
             for (Component c : currentPath) {
-                System.out.println("- " + c.getId());
+                System.out.println("  - " + c.getId());
             }
             requestLock();
         } else {
@@ -86,30 +98,35 @@ public class Train extends Component {
             System.out.println("No path found!");
             gui.showPathError(this);
         }
+        updateGUI();
     }
 
     private void handleLockResponse(Message msg) {
-        System.out.println("Train handling lock response, success: " + msg.isSuccess());
-        if (msg.isSuccess()) {
+        System.out.println("Train handling lock response, success: " + msg.isSuccess() + ", current status: " + status);
+        if (msg.isSuccess() && status == Status.LOCKING_PATH) {
             status = Status.MOVING;
-            System.out.println("Starting movement along path");
+            System.out.println("Path locked, starting movement. New status: " + status);
             startMoving();
         } else {
             unlockPath();
             status = Status.IDLE;
-            System.out.println("Failed to lock path!");
+            System.out.println("Failed to lock path! New status: " + status);
             gui.showLockError(this);
         }
+        updateGUI();
     }
 
     private void handleMoveComplete(Message msg) {
-        System.out.println("Train handling move complete");
+        System.out.println("Train handling move complete, current status: " + status);
+        if (status != Status.MOVING) {
+            System.out.println("Ignoring move complete because train is not in MOVING state");
+            return;
+        }
+
         Component previousLocation = currentLocation;
         currentLocation = msg.getSource();
-        this.x = currentLocation.getX();
-        this.y = currentLocation.getY();
 
-        if (previousLocation != currentLocation) {
+        if (previousLocation != null && previousLocation != currentLocation) {
             Message unlockMsg = new Message(Message.Type.UNLOCK_REQUEST, this, this, previousLocation);
             sendMessage(unlockMsg, previousLocation);
             System.out.println("Unlocked previous location: " + previousLocation.getId());
@@ -121,16 +138,8 @@ public class Train extends Component {
             currentPath = null;
             currentPathIndex = 0;
         } else {
-            System.out.println("Moving to next component");
-            // Add delay before moving to next segment
-            new Thread(() -> {
-                try {
-                    Thread.sleep(STATION_DELAY);
-                    moveToNext();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }).start();
+            System.out.println("Moving to next component in path");
+            moveToNext();
         }
         updateGUI();
     }
@@ -138,29 +147,51 @@ public class Train extends Component {
     private void requestLock() {
         Message msg = new Message(Message.Type.LOCK_REQUEST, this, currentLocation, destination);
         msg.setPath(currentPath);
-        System.out.println("Requesting lock for path");
-        sendMessage(msg, currentPath.get(0));
+        System.out.println("Requesting lock for path starting with: " + currentPath.get(currentPathIndex).getId());
+        sendMessage(msg, currentPath.get(currentPathIndex));
     }
 
     private void startMoving() {
-        System.out.println("Starting movement");
+        System.out.println("Starting train movement");
         moveToNext();
     }
 
     private void moveToNext() {
         if (currentPath != null && currentPathIndex < currentPath.size() - 1) {
             Component next = currentPath.get(currentPathIndex + 1);
-            System.out.println("Moving to next component: " + next.getId());
+            System.out.println("Moving to next component: " + next.getId() +
+                    " (index " + (currentPathIndex + 1) + " of " + (currentPath.size() - 1) + ")");
+
+            if (next instanceof Track) {
+                Track track = (Track) next;
+                // Start at the beginning of the track
+                this.x = track.getStartX();
+                this.y = track.getStartY();
+                updateGUI();
+                try {
+                    Thread.sleep(MOVEMENT_DELAY); // Small delay before movement
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
             Message msg = new Message(Message.Type.MOVE_REQUEST, this, currentLocation, next);
             sendMessage(msg, next);
-            currentPathIndex++;
+        } else {
+            System.out.println("No more components to move to");
+            if (currentLocation != destination) {
+                updatePosition(destination);
+                status = Status.IDLE;
+                updateGUI();
+            }
         }
     }
 
     private void unlockPath() {
         if (currentPath != null) {
-            System.out.println("Unlocking path");
+            System.out.println("Unlocking path components:");
             for (Component component : currentPath) {
+                System.out.println("  - Unlocking " + component.getId());
                 Message msg = new Message(Message.Type.UNLOCK_REQUEST, this, this, component);
                 sendMessage(msg, component);
             }
@@ -169,7 +200,10 @@ public class Train extends Component {
     }
 
     public void updateGUI() {
-        Platform.runLater(() -> gui.updateTrain(this));
+        Platform.runLater(() -> {
+            gui.updateTrain(this);
+            System.out.println("Updated GUI with train position: (" + x + "," + y + "), status: " + status);
+        });
     }
 
     public Status getStatus() {

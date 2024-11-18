@@ -7,8 +7,8 @@ public class Track extends Component {
     private final double startX, startY, endX, endY;
     private final int segments;
     private Set<String> processedMessageIds = new HashSet<>();
-    private static final long MOVE_DELAY = 3000; // 3 seconds per track segment
-    private static final int MOVEMENT_STEPS = 50; // More steps for smoother movement
+    private static final int MOVEMENT_STEPS = 20;  // Number of visible steps
+    private static final long STEP_DELAY = 200;    // Milliseconds between steps
 
     public Track(double startX, double startY, double endX, double endY, int segments) {
         super(startX, startY);
@@ -38,9 +38,6 @@ public class Track extends Component {
             case LOCK_REQUEST:
                 handleLockRequest(msg);
                 break;
-            case LOCK_RESPONSE:
-                handleLockResponse(msg);
-                break;
             case MOVE_REQUEST:
                 handleMoveRequest(msg);
                 break;
@@ -67,9 +64,9 @@ public class Track extends Component {
             List<Component> newPath = new ArrayList<>(msg.getPath());
             newPath.add(0, this);
             msg.setPath(newPath);
-            System.out.println("Track " + getId() + " added self to path. New path size: " + newPath.size());
+            System.out.println("Track " + getId() + " added to path. Path is now: " + pathToString(newPath));
         }
-        sendMessage(msg, msg.getDestination());
+        sendMessage(msg, msg.getTrain());
     }
 
     private void handleLockRequest(Message msg) {
@@ -77,14 +74,18 @@ public class Track extends Component {
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
             System.out.println("Track " + getId() + " locked for train: " + msg.getTrain().getId());
-            for (Component neighbor : neighbors) {
-                if (msg.getPath().contains(neighbor)) {
+
+            List<Component> path = msg.getPath();
+            if (path.contains(this)) {
+                int currentIndex = path.indexOf(this);
+                if (currentIndex >= 0 && currentIndex < path.size() - 1) {
+                    Component nextInPath = path.get(currentIndex + 1);
                     Message newMsg = new Message(msg);
-                    System.out.println("Track " + getId() + " forwarding lock request to: " + neighbor.getId());
-                    sendMessage(newMsg, neighbor);
+                    System.out.println("Track " + getId() + " forwarding lock request to: " + nextInPath.getId());
+                    sendMessage(newMsg, nextInPath);
                 }
             }
-            // Send successful lock response
+
             Message response = new Message(Message.Type.LOCK_RESPONSE, msg.getTrain(), this, msg.getTrain());
             response.setSuccess(true);
             sendMessage(response, msg.getTrain());
@@ -96,29 +97,38 @@ public class Track extends Component {
         }
     }
 
-    private void handleLockResponse(Message msg) {
-        System.out.println("Track " + getId() + " forwarding lock response to train");
-        sendMessage(msg, msg.getTrain());
-    }
-
     private void handleMoveRequest(Message msg) {
         System.out.println("Track " + getId() + " handling move request");
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
-            System.out.println("Track " + getId() + " starting movement animation");
 
             Thread moveThread = new Thread(() -> {
                 try {
-                    // Much slower, smoother movement
-                    for (int i = 0; i <= MOVEMENT_STEPS; i++) {
-                        final double progress = (double) i / MOVEMENT_STEPS;
+                    // Initial position
+                    msg.getTrain().x = startX;
+                    msg.getTrain().y = startY;
+                    msg.getTrain().updateGUI();
+                    Thread.sleep(STEP_DELAY);
+
+                    // Move in visible steps
+                    for (int i = 1; i <= MOVEMENT_STEPS; i++) {
+                        double progress = (double) i / MOVEMENT_STEPS;
+                        // Calculate new position
                         msg.getTrain().x = startX + (endX - startX) * progress;
                         msg.getTrain().y = startY + (endY - startY) * progress;
-                        Thread.sleep(MOVE_DELAY / MOVEMENT_STEPS);
-                        msg.getTrain().updateGUI(); // Update GUI at each step
+                        // Update GUI
+                        msg.getTrain().updateGUI();
+                        // Wait before next step
+                        Thread.sleep(STEP_DELAY);
                     }
 
-                    System.out.println("Track " + getId() + " completed movement");
+                    // Ensure final position is exact
+                    msg.getTrain().x = endX;
+                    msg.getTrain().y = endY;
+                    msg.getTrain().updateGUI();
+                    Thread.sleep(STEP_DELAY);
+
+                    // Complete movement
                     Message complete = new Message(Message.Type.MOVE_COMPLETE,
                             msg.getTrain(),
                             this,
@@ -146,6 +156,14 @@ public class Track extends Component {
         }
     }
 
+    private String pathToString(List<Component> path) {
+        StringBuilder sb = new StringBuilder();
+        for (Component c : path) {
+            sb.append(c.getId()).append(" -> ");
+        }
+        return sb.toString();
+    }
+
     public double getStartX() { return startX; }
     public double getStartY() { return startY; }
     public double getEndX() { return endX; }
@@ -155,17 +173,5 @@ public class Track extends Component {
     @Override
     public String toString() {
         return "Track " + getId() + " [(" + startX + "," + startY + ") to (" + endX + "," + endY + ")]";
-    }
-
-    @Override
-    public void lock(Train train) {
-        System.out.println("Track " + getId() + " being locked by train: " + train.getId());
-        super.lock(train);
-    }
-
-    @Override
-    public void unlock() {
-        System.out.println("Track " + getId() + " being unlocked");
-        super.unlock();
     }
 }
