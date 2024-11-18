@@ -12,6 +12,7 @@ import javafx.animation.AnimationTimer;
 import java.util.*;
 import java.io.*;
 
+
 public class SmartRailGUI extends Application implements TrainGUI {
     private Canvas railCanvas;
     private List<Component> components = new ArrayList<>();

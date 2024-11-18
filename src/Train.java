@@ -3,6 +3,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import javafx.application.Platform;
 
+
 public class Train extends Component {
     public enum Status {
         IDLE,

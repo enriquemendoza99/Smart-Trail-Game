@@ -3,6 +3,7 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
+
 public class Track extends Component {
     private final double startX, startY, endX, endY;
     private final int segments;
