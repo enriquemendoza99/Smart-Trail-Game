@@ -3,7 +3,69 @@
 Inside your project you should have the following structure:
 ## At the top level:
 ### README.md
-This file right here. Make sure you edit it to describe your.
+The SmartRail Simulator is a system that simulates a light rail network, 
+where trains interact directly with the tracks, switches, and lights. 
+The system is designed to be modular and flexible, where each component 
+is aware only of its immediate neighbors.
+
+The project has the following structure:
+
+    - Component: An abstract class that represents a component in the rail 
+                 network, such as a station, switch, or track.
+    - ConfigurationLoader: A class responsible for loading the configuration 
+                           file and validating the system's configuration.
+    - RailSystem: A class that represents the entire rail network, containing 
+                  the list of components and stations.
+    - Station: A class that represents a station in the rail network.
+    - Switch: A class that represents a switch in the rail network.
+    - Track: A class that represents a track segment in the rail network.
+    - Light: A class that represents a light in the rail network.
+    - Train: A class that represents a train in the rail network.
+    - Message: A class that represents a message exchanged between 
+               the components in the system.
+    - SmartRail: A class that contains the main method to start the application.
+    - SmartRailGUI: A class that provides the graphical user interface 
+                    (GUI) for the simulator.
+
+The configuration file is a text file that describes the layout of the light 
+rail network. Each line in the file represents a station, switch, or track 
+segment. The format of the file is as follows:
+
+Station: station <x-coordinate> <y-coordinate>
+Switch: switch <x-coordinate> <y-coordinate>
+Track: track <x1> <y1> <x2> <y2> [<numberspaces>]
+
+The <numberspaces> parameter for the track is optional and specifies the number 
+of equally spaced segments to be displayed on the track.
+
+User Interface
+    The SmartRail Simulator provides a graphical user interface (GUI) that 
+    allows the user to interact with the system. The GUI consists of a layout 
+    where the rail network is displayed, and a control panel on the right side 
+    that allows the user to select the source and destination stations, and add 
+    new trains to the system.
+    The user can add a new train by selecting the source and destination 
+    stations from box that its on the GUI, then clicking the "Add Train" button. 
+    The train will then be added to the system and its movement can be observed 
+    on the GUI
+
+Assumptions
+    - The rail network does not have any rail crossings.
+    - Trains can only enter and exit the system at stations.
+    - All trains move at the same speed.
+    - Trains can only change direction at stations.
+
+
+
+
+
+
+
+
+
+
+
+
 ### .gitignore
 This file tells git which files to you should not track with version control
 ### Jar file(s)
