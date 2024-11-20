@@ -14,7 +14,7 @@ public abstract class Component implements Runnable {
     public Component(double x, double y) {
         this.x = x;
         this.y = y;
-        this.id = getClass().getSimpleName() + "_" + nextId++;
+        this.id = String.format("%s_%d", getClass().getSimpleName(), nextId++);
     }
 
     public double getX() { return x; }
@@ -26,8 +26,15 @@ public abstract class Component implements Runnable {
     public void addNeighbor(Component neighbor) {
         if (!neighbors.contains(neighbor)) {
             neighbors.add(neighbor);
-            neighbor.addNeighbor(this);
+            // Ensure bidirectional connection
+            if (!neighbor.getNeighbors().contains(this)) {
+                neighbor.addNeighbor(this);
+            }
         }
+    }
+
+    public List<Component> getNeighbors() {
+        return new ArrayList<>(neighbors);
     }
 
     public void sendMessage(Message msg, Component target) {
@@ -59,7 +66,8 @@ public abstract class Component implements Runnable {
         occupyingTrain = null;
     }
 
-    public List<Component> getNeighbors() {
-        return new ArrayList<>(neighbors);
+    @Override
+    public String toString() {
+        return id + " at (" + x + "," + y + ")";
     }
 }

@@ -7,7 +7,7 @@ public class Switch extends Component {
     private Component mainTrack;
     private Component altTrack;
     private boolean isMainPosition = true;
-    private Set<String> processedMessageIds = new HashSet<>();
+    private final Set<String> processedMessageIds = new HashSet<>();
 
     public Switch(double x, double y) {
         super(x, y);
@@ -16,8 +16,19 @@ public class Switch extends Component {
     public void setTracks(Component mainTrack, Component altTrack) {
         this.mainTrack = mainTrack;
         this.altTrack = altTrack;
-        addNeighbor(mainTrack);
-        addNeighbor(altTrack);
+
+        // Ensure proper neighbor connections
+        neighbors.clear();
+        if (mainTrack != null) {
+            addNeighbor(mainTrack);
+        }
+        if (altTrack != null) {
+            addNeighbor(altTrack);
+        }
+
+        System.out.println("Switch " + getId() + " configured with main=" +
+                (mainTrack != null ? mainTrack.getId() : "none") +
+                ", alt=" + (altTrack != null ? altTrack.getId() : "none"));
     }
 
     @Override
@@ -27,29 +38,17 @@ public class Switch extends Component {
         }
 
         switch (msg.getType()) {
-            case FIND_PATH:
-                handleFindPath(msg);
-                break;
-            case PATH_RESPONSE:
-                handlePathResponse(msg);
-                break;
-            case LOCK_REQUEST:
-                handleLockRequest(msg);
-                break;
-            case LOCK_RESPONSE:
-                handleLockResponse(msg);
-                break;
-            case MOVE_REQUEST:
-                handleMoveRequest(msg);
-                break;
-            case UNLOCK_REQUEST:
-                handleUnlockRequest(msg);
-                break;
+            case FIND_PATH -> handleFindPath(msg);
+            case PATH_RESPONSE -> handlePathResponse(msg);
+            case LOCK_REQUEST -> handleLockRequest(msg);
+            case MOVE_REQUEST -> handleMoveRequest(msg);
+            case UNLOCK_REQUEST -> handleUnlockRequest(msg);
         }
     }
 
     private void handleFindPath(Message msg) {
-        for (Component neighbor : neighbors) {
+        // Forward to all neighbors except the source
+        for (Component neighbor : getNeighbors()) {
             if (neighbor != msg.getSource()) {
                 Message newMsg = new Message(msg);
                 sendMessage(newMsg, neighbor);
@@ -62,26 +61,35 @@ public class Switch extends Component {
             List<Component> newPath = new ArrayList<>(msg.getPath());
             newPath.add(0, this);
             msg.setPath(newPath);
-            sendMessage(msg, msg.getDestination());
+
+            // Check if we need to switch position based on path
+            if (newPath.size() >= 2) {
+                Component nextInPath = newPath.get(1);
+                isMainPosition = nextInPath == mainTrack;
+            }
         }
+        sendMessage(msg, msg.getTrain());
     }
 
     private void handleLockRequest(Message msg) {
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
-            List<Component> path = msg.getPath();
-            int currentIndex = path.indexOf(this);
-            if (currentIndex >= 0 && currentIndex < path.size() - 1) {
-                Component nextComponent = path.get(currentIndex + 1);
-                isMainPosition = nextComponent == mainTrack;
-            }
 
-            for (Component neighbor : neighbors) {
-                if (msg.getPath().contains(neighbor)) {
+            List<Component> path = msg.getPath();
+            if (path != null && path.contains(this)) {
+                int currentIndex = path.indexOf(this);
+                if (currentIndex >= 0 && currentIndex < path.size() - 1) {
+                    Component nextInPath = path.get(currentIndex + 1);
+                    isMainPosition = nextInPath == mainTrack;
+
                     Message newMsg = new Message(msg);
-                    sendMessage(newMsg, neighbor);
+                    sendMessage(newMsg, nextInPath);
                 }
             }
+
+            Message response = new Message(Message.Type.LOCK_RESPONSE, msg.getTrain(), this, msg.getTrain());
+            response.setSuccess(true);
+            sendMessage(response, msg.getTrain());
         } else {
             Message response = new Message(Message.Type.LOCK_RESPONSE, msg.getTrain(), this, msg.getTrain());
             response.setSuccess(false);
@@ -89,14 +97,15 @@ public class Switch extends Component {
         }
     }
 
-    private void handleLockResponse(Message msg) {
-        sendMessage(msg, msg.getTrain());
-    }
-
     private void handleMoveRequest(Message msg) {
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
             Message complete = new Message(Message.Type.MOVE_COMPLETE, msg.getTrain(), this, msg.getTrain());
+            complete.setSuccess(true);
+            sendMessage(complete, msg.getTrain());
+        } else {
+            Message complete = new Message(Message.Type.MOVE_COMPLETE, msg.getTrain(), this, msg.getTrain());
+            complete.setSuccess(false);
             sendMessage(complete, msg.getTrain());
         }
     }

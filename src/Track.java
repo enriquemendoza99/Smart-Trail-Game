@@ -6,9 +6,9 @@ import java.util.Set;
 public class Track extends Component {
     private final double startX, startY, endX, endY;
     private final int segments;
-    private Set<String> processedMessageIds = new HashSet<>();
+    private final Set<String> processedMessageIds = new HashSet<>();
     private static final int MOVEMENT_STEPS = 50;
-    private static final long MOVEMENT_DELAY = 500;
+    private static final long MOVEMENT_DELAY = 50; // Faster movement
 
     public Track(double startX, double startY, double endX, double endY, int segments) {
         super(startX, startY);
@@ -17,112 +17,51 @@ public class Track extends Component {
         this.endX = endX;
         this.endY = endY;
         this.segments = segments;
-        System.out.println("Created Track: " + getId() + " from (" + startX + "," + startY + ") to (" + endX + "," + endY + ")");
     }
 
     @Override
     protected void processMessage(Message msg) {
         if (!processedMessageIds.add(msg.getMessageId())) {
-            System.out.println("Track " + getId() + " already processed message: " + msg.getMessageId());
             return;
         }
 
-        System.out.println("Track " + getId() + " processing message: " + msg.getType());
         switch (msg.getType()) {
-            case FIND_PATH:
-                handleFindPath(msg);
-                break;
-            case PATH_RESPONSE:
-                handlePathResponse(msg);
-                break;
-            case LOCK_REQUEST:
-                handleLockRequest(msg);
-                break;
-            case MOVE_REQUEST:
-                handleMoveRequest(msg);
-                break;
-            case UNLOCK_REQUEST:
-                handleUnlockRequest(msg);
-                break;
-        }
-    }
-
-    private void handleMoveRequest(Message msg) {
-        System.out.println("Track " + getId() + " handling move request");
-        if (!isLocked || occupyingTrain == msg.getTrain()) {
-            lock(msg.getTrain());
-
-            Thread moveThread = new Thread(() -> {
-                try {
-                    // Move the train step by step
-                    for (int i = 0; i <= MOVEMENT_STEPS; i++) {
-                        final double progress = (double) i / MOVEMENT_STEPS;
-                        // Calculate new position
-                        double newX = startX + (endX - startX) * progress;
-                        double newY = startY + (endY - startY) * progress;
-                        msg.getTrain().x = newX;
-                        msg.getTrain().y = newY;
-                        msg.getTrain().updateGUI();
-                        Thread.sleep(MOVEMENT_DELAY);
-                    }
-
-                    // Update the train's position to the end of the track
-                    msg.getTrain().x = endX;
-                    msg.getTrain().y = endY;
-                    msg.getTrain().updateGUI();
-
-                    // Send move complete message
-                    Message complete = new Message(Message.Type.MOVE_COMPLETE,
-                            msg.getTrain(),
-                            this,
-                            msg.getTrain());
-                    complete.setSuccess(true);
-                    sendMessage(complete, msg.getTrain());
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            });
-
-            moveThread.setDaemon(true);
-            moveThread.start();
+            case FIND_PATH -> handleFindPath(msg);
+            case PATH_RESPONSE -> handlePathResponse(msg);
+            case LOCK_REQUEST -> handleLockRequest(msg);
+            case MOVE_REQUEST -> handleMoveRequest(msg);
+            case UNLOCK_REQUEST -> handleUnlockRequest(msg);
         }
     }
 
     private void handleFindPath(Message msg) {
-        System.out.println("Track " + getId() + " handling find path request");
-        for (Component neighbor : neighbors) {
+        for (Component neighbor : getNeighbors()) {
             if (neighbor != msg.getSource()) {
                 Message newMsg = new Message(msg);
-                System.out.println("Track " + getId() + " forwarding find path to: " + neighbor.getId());
                 sendMessage(newMsg, neighbor);
             }
         }
     }
 
     private void handlePathResponse(Message msg) {
-        System.out.println("Track " + getId() + " handling path response");
         if (msg.getPath() != null) {
             List<Component> newPath = new ArrayList<>(msg.getPath());
             newPath.add(0, this);
             msg.setPath(newPath);
-            System.out.println("Track " + getId() + " added to path. Path is now: " + pathToString(newPath));
         }
         sendMessage(msg, msg.getTrain());
     }
 
     private void handleLockRequest(Message msg) {
-        System.out.println("Track " + getId() + " handling lock request");
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
-            System.out.println("Track " + getId() + " locked for train: " + msg.getTrain().getId());
 
             List<Component> path = msg.getPath();
-            if (path.contains(this)) {
+            if (path != null && path.contains(this)) {
                 int currentIndex = path.indexOf(this);
                 if (currentIndex >= 0 && currentIndex < path.size() - 1) {
                     Component nextInPath = path.get(currentIndex + 1);
                     Message newMsg = new Message(msg);
-                    System.out.println("Track " + getId() + " forwarding lock request to: " + nextInPath.getId());
                     sendMessage(newMsg, nextInPath);
                 }
             }
@@ -131,29 +70,54 @@ public class Track extends Component {
             response.setSuccess(true);
             sendMessage(response, msg.getTrain());
         } else {
-            System.out.println("Track " + getId() + " cannot lock - already locked by different train");
             Message response = new Message(Message.Type.LOCK_RESPONSE, msg.getTrain(), this, msg.getTrain());
             response.setSuccess(false);
             sendMessage(response, msg.getTrain());
         }
     }
 
-    private void handleUnlockRequest(Message msg) {
-        System.out.println("Track " + getId() + " handling unlock request");
-        if (occupyingTrain == msg.getTrain()) {
-            unlock();
-            System.out.println("Track " + getId() + " unlocked");
+    private void handleMoveRequest(Message msg) {
+        if (!isLocked || occupyingTrain == msg.getTrain()) {
+            lock(msg.getTrain());
+
+            Thread moveThread = new Thread(() -> {
+                try {
+                    moveTrainAlongTrack(msg.getTrain());
+                    Message complete = new Message(Message.Type.MOVE_COMPLETE, msg.getTrain(), this, msg.getTrain());
+                    complete.setSuccess(true);
+                    sendMessage(complete, msg.getTrain());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            moveThread.setDaemon(true);
+            moveThread.start();
         } else {
-            System.out.println("Track " + getId() + " cannot unlock - locked by different train");
+            Message complete = new Message(Message.Type.MOVE_COMPLETE, msg.getTrain(), this, msg.getTrain());
+            complete.setSuccess(false);
+            sendMessage(complete, msg.getTrain());
         }
     }
 
-    private String pathToString(List<Component> path) {
-        StringBuilder sb = new StringBuilder();
-        for (Component c : path) {
-            sb.append(c.getId()).append(" -> ");
+    private void moveTrainAlongTrack(Train train) throws InterruptedException {
+        for (int i = 0; i <= MOVEMENT_STEPS; i++) {
+            double progress = (double) i / MOVEMENT_STEPS;
+            train.x = startX + (endX - startX) * progress;
+            train.y = startY + (endY - startY) * progress;
+            train.updateGUI();
+            Thread.sleep(MOVEMENT_DELAY / segments);
         }
-        return sb.toString();
+
+        // Ensure train reaches exact endpoint
+        train.x = endX;
+        train.y = endY;
+        train.updateGUI();
+    }
+
+    private void handleUnlockRequest(Message msg) {
+        if (occupyingTrain == msg.getTrain()) {
+            unlock();
+        }
     }
 
     public double getStartX() { return startX; }
@@ -164,6 +128,6 @@ public class Track extends Component {
 
     @Override
     public String toString() {
-        return "Track " + getId() + " [(" + startX + "," + startY + ") to (" + endX + "," + endY + ")]";
+        return String.format("%s [(%f,%f) to (%f,%f)]", getId(), startX, startY, endX, endY);
     }
 }

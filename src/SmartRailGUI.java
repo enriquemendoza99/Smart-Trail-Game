@@ -9,6 +9,7 @@ import javafx.geometry.Insets;
 import javafx.scene.control.Alert.AlertType;
 import javafx.application.Platform;
 import javafx.animation.AnimationTimer;
+import javafx.scene.text.TextAlignment;
 import java.util.*;
 import java.io.*;
 
@@ -42,7 +43,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
             // Create canvas
             createCanvas();
 
-            Scene scene = new Scene(root, 800, 600);
+            Scene scene = new Scene(root, 1000, 800);
             primaryStage.setTitle("SmartRail Simulator");
             primaryStage.setScene(scene);
 
@@ -52,6 +53,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
                 showError("Configuration Error", "No configuration file specified");
                 return;
             }
+
             String configFile = args.get(0);
             loadConfiguration(configFile);
 
@@ -69,18 +71,8 @@ public class SmartRailGUI extends Application implements TrainGUI {
         }
     }
 
-    private void startRenderLoop() {
-        AnimationTimer timer = new AnimationTimer() {
-            @Override
-            public void handle(long now) {
-                drawRailNetwork();
-            }
-        };
-        timer.start();
-    }
-
     private void createCanvas() {
-        railCanvas = new Canvas(600, 500);
+        railCanvas = new Canvas(900, 700);
         canvasContainer.getChildren().add(railCanvas);
 
         railCanvas.widthProperty().bind(canvasContainer.widthProperty());
@@ -92,6 +84,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
         panel.setPadding(new Insets(10));
         panel.setPrefWidth(200);
 
+        // Create station selection controls
         Label sourceLabel = new Label("Source Station:");
         sourceStationBox = new ComboBox<>();
         sourceStationBox.setMaxWidth(Double.MAX_VALUE);
@@ -104,14 +97,56 @@ public class SmartRailGUI extends Application implements TrainGUI {
         addTrainButton.setMaxWidth(Double.MAX_VALUE);
         addTrainButton.setOnAction(e -> addNewTrain());
 
+        // Create legend
+        TitledPane legend = createLegend();
+
         panel.getChildren().addAll(
-                sourceLabel, sourceStationBox,
-                destLabel, destStationBox,
+                sourceLabel,
+                sourceStationBox,
+                destLabel,
+                destStationBox,
                 new Separator(),
-                addTrainButton
+                addTrainButton,
+                new Separator(),
+                legend
         );
 
         return panel;
+    }
+
+    private TitledPane createLegend() {
+        VBox legendContent = new VBox(5);
+        legendContent.setPadding(new Insets(5));
+
+        Label stationLabel = new Label("Station (Green/Red when locked)");
+        Label switchLabel = new Label("Switch (Orange/Red when locked)");
+        Label trackLabel = new Label("Track (Black/Red when locked)");
+        Label trainIdleLabel = new Label("Train Idle (Gray)");
+        Label trainSeekingLabel = new Label("Train Seeking Path (Yellow)");
+        Label trainLockingLabel = new Label("Train Locking Path (Purple)");
+        Label trainMovingLabel = new Label("Train Moving (Green)");
+
+        legendContent.getChildren().addAll(
+                stationLabel,
+                switchLabel,
+                trackLabel,
+                trainIdleLabel,
+                trainSeekingLabel,
+                trainLockingLabel,
+                trainMovingLabel
+        );
+
+        return new TitledPane("Legend", legendContent);
+    }
+
+    private void startRenderLoop() {
+        AnimationTimer timer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                drawRailNetwork();
+            }
+        };
+        timer.start();
     }
 
     private void drawRailNetwork() {
@@ -130,6 +165,13 @@ public class SmartRailGUI extends Application implements TrainGUI {
             }
         }
 
+        // Draw switches
+        for (Component component : components) {
+            if (component instanceof Switch) {
+                drawSwitch((Switch)component, gc);
+            }
+        }
+
         // Draw stations
         for (Station station : stations) {
             drawStation(station, gc);
@@ -145,24 +187,50 @@ public class SmartRailGUI extends Application implements TrainGUI {
         gc.setStroke(Color.LIGHTGRAY);
         gc.setLineWidth(0.5);
 
-        for (int i = 0; i <= 10; i++) {
+        double maxX = railCanvas.getWidth();
+        double maxY = railCanvas.getHeight();
+
+        // Draw vertical lines
+        for (int i = 0; i <= 20; i++) {
             double x = transformX(i);
-            double y = transformY(i);
-            gc.strokeLine(x, 0, x, railCanvas.getHeight());
-            gc.strokeLine(0, y, railCanvas.getWidth(), y);
+            if (x >= 0 && x <= maxX) {
+                gc.strokeLine(x, 0, x, maxY);
+            }
         }
+
+        // Draw horizontal lines
+        for (int i = 0; i <= 20; i++) {
+            double y = transformY(i);
+            if (y >= 0 && y <= maxY) {
+                gc.strokeLine(0, y, maxX, y);
+            }
+        }
+    }
+
+    private void drawSwitch(Switch sw, GraphicsContext gc) {
+        double x = transformX(sw.getX());
+        double y = transformY(sw.getY());
+
+        gc.setFill(sw.isLocked() ? Color.RED : Color.ORANGE);
+        gc.fillOval(x - 8, y - 8, 16, 16);
+
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(2);
+        gc.strokeOval(x - 8, y - 8, 16, 16);
     }
 
     private void drawTrack(Track track, GraphicsContext gc) {
         gc.setStroke(track.isLocked() ? Color.RED : Color.BLACK);
         gc.setLineWidth(2);
+
         double x1 = transformX(track.getStartX());
         double y1 = transformY(track.getStartY());
         double x2 = transformX(track.getEndX());
         double y2 = transformY(track.getEndY());
+
         gc.strokeLine(x1, y1, x2, y2);
 
-        // Draw segments
+        // Draw segment markers
         if (track.getSegments() > 1) {
             gc.setFill(Color.BLACK);
             for (int i = 1; i < track.getSegments(); i++) {
@@ -175,9 +243,10 @@ public class SmartRailGUI extends Application implements TrainGUI {
     }
 
     private void drawStation(Station station, GraphicsContext gc) {
-        gc.setFill(station.isLocked() ? Color.RED : Color.GREEN);
         double x = transformX(station.getX());
         double y = transformY(station.getY());
+
+        gc.setFill(station.isLocked() ? Color.RED : Color.GREEN);
         gc.fillRect(x - 15, y - 15, 30, 30);
 
         gc.setStroke(Color.BLACK);
@@ -185,34 +254,29 @@ public class SmartRailGUI extends Application implements TrainGUI {
         gc.strokeRect(x - 15, y - 15, 30, 30);
 
         gc.setFill(Color.BLACK);
-        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
+        gc.setTextAlign(TextAlignment.CENTER);
         gc.fillText(station.getName(), x, y + 5);
     }
 
     private void drawTrain(Train train, GraphicsContext gc) {
-        Color trainColor;
-        if (train.getStatus() != null) {
-            switch (train.getStatus()) {
-                case IDLE: trainColor = Color.GRAY; break;
-                case SEEKING_PATH: trainColor = Color.YELLOW; break;
-                case LOCKING_PATH: trainColor = Color.PURPLE; break;
-                case MOVING: trainColor = Color.GREEN; break;
-                case EXITED: trainColor = Color.TRANSPARENT; break;
-                default: trainColor = Color.BLACK;
-            }
-        } else {
-            trainColor = Color.BLACK;
-        }
+        Color trainColor = switch (train.getStatus()) {
+            case IDLE -> Color.GRAY;
+            case SEEKING_PATH -> Color.YELLOW;
+            case LOCKING_PATH -> Color.PURPLE;
+            case MOVING -> Color.GREEN;
+            case EXITED -> Color.TRANSPARENT;
+        };
 
-        double x = transformX(train.getX());
-        double y = transformY(train.getY());
-
-        gc.setFill(trainColor);
         if (trainColor != Color.TRANSPARENT) {
-            gc.fillOval(x - 15, y - 15, 30, 30); // Increase the size of the train
+            double x = transformX(train.getX());
+            double y = transformY(train.getY());
+
+            gc.setFill(trainColor);
+            gc.fillOval(x - 12, y - 12, 24, 24);
+
             gc.setStroke(Color.BLACK);
             gc.setLineWidth(2);
-            gc.strokeOval(x - 15, y - 15, 30, 30);
+            gc.strokeOval(x - 12, y - 12, 24, 24);
         }
     }
 
@@ -222,6 +286,24 @@ public class SmartRailGUI extends Application implements TrainGUI {
 
     private double transformY(double y) {
         return y * SCALE_FACTOR + CANVAS_PADDING;
+    }
+
+    private void loadConfiguration(String filename) throws IOException {
+        ConfigurationLoader loader = new ConfigurationLoader();
+        RailSystem system = loader.loadConfiguration(filename);
+
+        components.addAll(system.getComponents());
+        stations.addAll(system.getStations());
+
+        sourceStationBox.getItems().addAll(stations);
+        destStationBox.getItems().addAll(stations);
+
+        if (!stations.isEmpty()) {
+            sourceStationBox.setValue(stations.get(0));
+            if (stations.size() > 1) {
+                destStationBox.setValue(stations.get(1));
+            }
+        }
     }
 
     private void addNewTrain() {
@@ -246,45 +328,39 @@ public class SmartRailGUI extends Application implements TrainGUI {
         trainThread.setDaemon(true);
         trainThread.start();
 
-        // Check if there are any other trains currently moving
-        for (Train t : trains) {
-            if (t.getStatus() == Train.Status.MOVING) {
-                isTrainMoving = true;
-                sourceStationBox.setDisable(true);
-                destStationBox.setDisable(true);
-                addTrainButton.setDisable(true);
-                return;
-            }
-        }
-
-        // If no other trains are moving, set the destination for the new train
-        train.setDestination(dest);
-        isTrainMoving = true;
-    }
-
-    private void loadConfiguration(String filename) {
-        try {
-            ConfigurationLoader loader = new ConfigurationLoader();
-            RailSystem system = loader.loadConfiguration(filename);
-            components.addAll(system.getComponents());
-            stations.addAll(system.getStations());
-
-            sourceStationBox.getItems().addAll(stations);
-            destStationBox.getItems().addAll(stations);
-
-            if (!stations.isEmpty()) {
-                sourceStationBox.setValue(stations.get(0));
-                if (stations.size() > 1) {
-                    destStationBox.setValue(stations.get(1));
-                }
-            }
-
-        } catch (Exception e) {
-            showError("Configuration Error", "Failed to load configuration: " + e.getMessage());
-            e.printStackTrace();
+        if (trains.stream().anyMatch(t -> t.getStatus() == Train.Status.MOVING)) {
+            isTrainMoving = true;
+            sourceStationBox.setDisable(true);
+            destStationBox.setDisable(true);
+            addTrainButton.setDisable(true);
+        } else {
+            train.setDestination(dest);
+            isTrainMoving = true;
+            sourceStationBox.setDisable(true);
+            destStationBox.setDisable(true);
+            addTrainButton.setDisable(true);
         }
     }
 
+    private void startSimulation() {
+        for (Component component : components) {
+            Thread thread = new Thread(component);
+            thread.setDaemon(true);
+            thread.start();
+        }
+    }
+
+    private void showError(String title, String message) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(AlertType.ERROR);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+        });
+    }
+
+    // TrainGUI Interface Implementation
     @Override
     public void updateTrain(Train train) {
         Platform.runLater(() -> {
@@ -307,6 +383,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
             alert.setHeaderText(null);
             alert.setContentText("Train could not find a path to the destination.");
             alert.showAndWait();
+            removeTrainFromSystem(train);
         });
     }
 
@@ -318,6 +395,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
             alert.setHeaderText(null);
             alert.setContentText("Train could not secure the path to the destination.");
             alert.showAndWait();
+            removeTrainFromSystem(train);
         });
     }
 
@@ -348,29 +426,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
         });
     }
 
-    private void showError(String title, String message) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(AlertType.ERROR);
-            alert.setTitle(title);
-            alert.setHeaderText(null);
-            alert.setContentText(message);
-            alert.showAndWait();
-        });
-    }
-
-    private void startSimulation() {
-        for (Component component : components) {
-            Thread thread = new Thread(component);
-            thread.setDaemon(true);
-            thread.start();
-        }
-    }
-
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.out.println("Usage: java SmartRailGUI <config-file>");
-            System.exit(1);
-        }
         launch(args);
     }
 }
