@@ -1,20 +1,16 @@
-import java.util.*;
-
 /**
  * Container class representing the entire rail system.
- * Holds references to all components and stations in the system.
- * Provides access to the complete rail network configuration.
  */
-public class RailSystem {
-    /** List of all components in the system */
-    private final List<Component> components;
+import java.util.*;
 
-    /** List of all stations in the system */
+public class RailSystem {
+    // List of all components in the system
+    private final List<Component> components;
+    // List of all stations in the system
     private final List<Station> stations;
 
     /**
      * Creates a new rail system with specified components and stations.
-     * Creates defensive copies of input lists to maintain encapsulation.
      * @param components List of all rail system components
      * @param stations List of all stations in the system
      */

@@ -1,16 +1,15 @@
-import java.util.Set;
-import java.util.HashSet;
-
 /**
  * Represents a signal light in the rail system.
  * Controls access to track sections by maintaining a RED/GREEN state.
- * Works in conjunction with the locking mechanism to prevent collisions.
  */
+import java.util.Set;
+import java.util.HashSet;
+
 public class Light extends Component {
     /**
      * Possible states for the light signal:
-     * RED - Stop/Section is locked
-     * GREEN - Clear to proceed/Section is available
+     * RED - Stop is locked
+     * GREEN - Clear to proceed is available
      */
     public enum State {
         RED,

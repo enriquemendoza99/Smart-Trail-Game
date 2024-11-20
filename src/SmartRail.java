@@ -5,8 +5,8 @@
 public class SmartRail {
     /**
      * Main method that starts the application.
-     * Requires a configuration file path as an argument.
-     * @param args Command line arguments. args[0] should be the config file path
+     * @param args Command line arguments. args[0] should be the config
+     *             file path
      */
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -14,7 +14,6 @@ public class SmartRail {
             System.out.println("Example: java SmartRail simple.txt");
             System.exit(1);
         }
-
         SmartRailGUI.main(args);
     }
 }

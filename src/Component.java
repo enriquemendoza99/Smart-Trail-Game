@@ -1,27 +1,26 @@
+/**
+ * Abstract class for all rail system components (stations, tracks,
+ * switches). Each component runs on its own thread and communicates via message
+ * passing.
+ */
 import java.util.concurrent.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Abstract base class for all rail system components (stations, tracks,
- * switches). Each component runs on its own thread and communicates via message
- * passing. Provides core functionality for component positioning, locking, and
- * neighbor management.
- */
 public abstract class Component implements Runnable {
-    /** Queue for incoming messages to be processed by this component */
+    //Queue for incoming messages to be processed by this component
     protected BlockingQueue<Message> inbox = new LinkedBlockingQueue<>();
-    /** List of components directly connected to this component */
+    //List of components directly connected to this component
     protected List<Component> neighbors = new ArrayList<>();
-    /** X-Y-coordinates of this component in the rail system */
+    // X-Y-coordinates of this component in the rail system
     protected double x, y;
-    /** Flag indicating if this component is currently locked by a train */
+    // Flag indicating if this component is currently locked by a train
     protected boolean isLocked = false;
-    /** Reference to the train currently occupying this component, if any */
+    // Reference to the train currently occupying this component
     protected Train occupyingTrain = null;
-    /** Unique identifier for this component */
+    //Unique identifier for this component
     protected String id;
-    /** Counter for generating unique component IDs */
+    // Counter for generating unique component IDs
     protected static int nextId = 0;
 
     /**
@@ -50,7 +49,6 @@ public abstract class Component implements Runnable {
     /**
      * Adds a bidirectional connection to another component.
      * Ensures that if A is connected to B, B is also connected to A.
-     *
      * @param neighbor The component to connect with
      */
     public void addNeighbor(Component neighbor) {
@@ -96,14 +94,12 @@ public abstract class Component implements Runnable {
             }
         }
     }
-
     /**
      * Abstract method to process incoming messages.
      * Each component type must implement its own message handling logic.
      * @param msg The message to process
      */
     protected abstract void processMessage(Message msg);
-
     /**
      * Locks this component for use by a specific train.
      * @param train The train taking control of this component
@@ -112,7 +108,6 @@ public abstract class Component implements Runnable {
         isLocked = true;
         occupyingTrain = train;
     }
-
     /**
      * Unlocks this component, making it available for other trains.
      */

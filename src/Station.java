@@ -1,17 +1,15 @@
-import java.util.*;
-
 /**
  * Represents a station in the rail system.
  * A station is an endpoint where trains can start and end their journeys.
  * Handles path finding, train movement, and station locking/unlocking.
  */
+import java.util.*;
+
 public class Station extends Component {
-    /** Unique name identifier for this station */
+    // Unique name identifier for this station
     private final String name;
-
-    /** Set to track processed message IDs and prevent duplicate processing */
+    // Set to track processed message IDs and prevent duplicate processing
     private final Set<String> processedMessageIds = new HashSet<>();
-
     /**
      * Creates a new station at specified coordinates.
      * @param name Station identifier
@@ -22,11 +20,9 @@ public class Station extends Component {
         super(x, y);
         this.name = name;
     }
-
     /**
      * Processes incoming messages for this station.
-     * Handles path finding, movement requests, and locking/unlocking operations.
-     * Implements duplicate message detection.
+     * Handles path finding, movement requests,and locking/unlocking operations.
      * @param msg The message to process
      */
     @Override
@@ -34,7 +30,6 @@ public class Station extends Component {
         if (!processedMessageIds.add(msg.getMessageId())) {
             return;
         }
-
         switch (msg.getType()) {
             case FIND_PATH -> handleFindPath(msg);
             case PATH_RESPONSE -> handlePathResponse(msg);
@@ -52,7 +47,6 @@ public class Station extends Component {
      */
     private void handleFindPath(Message msg) {
         if (this == msg.getDestination()) {
-            // This station is the destination, create path back to train
             List<Component> path = new ArrayList<>();
             path.add(this);
             Message response = new Message(Message.Type.PATH_RESPONSE,
@@ -61,7 +55,6 @@ public class Station extends Component {
             response.setSuccess(true);
             sendMessage(response, msg.getTrain());
         } else {
-            // Forward find path request to neighbors except the source
             for (Component neighbor : getNeighbors()) {
                 if (neighbor != msg.getSource()) {
                     Message newMsg = new Message(msg);
@@ -70,7 +63,6 @@ public class Station extends Component {
             }
         }
     }
-
     /**
      * Handles path response messages during path finding.
      * Adds this station to the path and forwards to train.

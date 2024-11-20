@@ -1,11 +1,9 @@
-import java.util.List;
-
 /**
  * Represents a message passed between components in the rail system.
  * Implements the communication protocol between components.
- * Each message has a unique ID and carries information about its source,
- * destination, and associated train.
  */
+import java.util.List;
+
 public class Message {
     /**
      * Types of messages that can be sent between components:
@@ -44,7 +42,8 @@ public class Message {
      * @param source Component sending the message
      * @param destination Intended destination
      */
-    public Message(Type type, Train train, Component source, Component destination) {
+    public Message(Type type, Train train, Component source,
+                   Component destination) {
         this.type = type;
         this.train = train;
         this.source = source;

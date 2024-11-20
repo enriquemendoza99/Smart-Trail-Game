@@ -1,29 +1,22 @@
+/**
+ * Configuration Loader for the SmartRail system. Responsible for reading
+ * rail system configuration from a file and creating a valid rail network.
+ */
 import java.io.*;
 import java.util.*;
 
-/**
- * Configuration Loader for the SmartRail system.
- * Responsible for reading rail system configuration from a file and creating a
- * valid rail network. Performs validation of the layout and ensures proper
- * connectivity between components.
- */
 public class ConfigurationLoader {
-    /** List of all components in the rail system */
+    // List of all components in the rail system
     private final List<Component> components = new ArrayList<>();
-
-    /** List of all stations in the rail system */
+    // List of all stations in the rail system
     private final List<Station> stations = new ArrayList<>();
-
-    /** List of all tracks in the rail system */
+    // List of all tracks in the rail system
     private final List<Track> tracks = new ArrayList<>();
-
-    /** List of all switches in the rail system */
+    // List of all switches in the rail system
     private final List<Switch> switches = new ArrayList<>();
-
-    /** Map of components indexed by their location coordinates */
+    // Map of components indexed by their location coordinates
     private final Map<String, Component> componentsByLocation = new HashMap<>();
-
-    /** Tolerance value for floating-point coordinate comparisons */
+    // Tolerance value for floating-point coordinate comparisons
     private static final double EPSILON = 0.1;
 
     /**
@@ -39,19 +32,18 @@ public class ConfigurationLoader {
         printDebugInfo();
         return new RailSystem(components, stations);
     }
-
     /**
      * Reads components from the configuration file and creates them.
      * Each line should be in one of these formats:
      * - station x y
      * - switch x y
      * - track x1 y1 x2 y2 [segments]
-     *
      * @param filename Path to the configuration file
      * @throws IOException If file format is invalid or file cannot be read
      */
     private void loadComponents(String filename) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+        try (BufferedReader reader = new BufferedReader(
+                new FileReader(filename))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
@@ -114,17 +106,14 @@ public class ConfigurationLoader {
             throw new IllegalArgumentException("Invalid track format: " +
                     String.join(" ", parts));
         }
-
         double x1 = Double.parseDouble(parts[1]);
         double y1 = Double.parseDouble(parts[2]);
         double x2 = Double.parseDouble(parts[3]);
         double y2 = Double.parseDouble(parts[4]);
         int segments = parts.length > 5 ? Integer.parseInt(parts[5]) : 1;
-
         if (Math.abs(x2 - x1) < EPSILON && Math.abs(y2 - y1) < EPSILON) {
             throw new IllegalArgumentException("Zero-length track detected");
         }
-
         Track track = new Track(x1, y1, x2, y2, segments);
         tracks.add(track);
         components.add(track);
@@ -140,31 +129,24 @@ public class ConfigurationLoader {
      * 3. Configure switches with their connected tracks
      */
     private void createConnections() {
-        // First connect tracks to their endpoints and switches
         for (Track track : tracks) {
             connectTrackEndpoints(track);
         }
-
-        // Then connect tracks that share endpoints
         for (int i = 0; i < tracks.size(); i++) {
             for (int j = i + 1; j < tracks.size(); j++) {
                 connectTracksIfShared(tracks.get(i), tracks.get(j));
             }
         }
-
-        // Finally, configure switches with their connected tracks
         for (Switch sw : switches) {
             configureSwitch(sw);
         }
     }
-
     /**
      * Connects a track to its endpoint components and any switches along its
      * length.
      * @param track The track to connect
      */
     private void connectTrackEndpoints(Track track) {
-        // Connect to components at track endpoints
         for (Component comp : components) {
             if (comp instanceof Track) continue;
 
@@ -175,8 +157,6 @@ public class ConfigurationLoader {
                 connect(track, comp);
             }
         }
-
-        // Check for switches along the track
         for (Switch sw : switches) {
             if (isPointOnTrack(sw.getX(), sw.getY(), track)) {
                 connect(track, sw);
@@ -201,6 +181,8 @@ public class ConfigurationLoader {
      * @param sw The switch to configure
      */
     private void configureSwitch(Switch sw) {
+        // Stream method is used to get a Sequential Stream from the array
+        // passed as the parameter with its elements.
         List<Track> connectedTracks = sw.getNeighbors().stream()
                 .filter(c -> c instanceof Track)
                 .map(c -> (Track) c)
@@ -208,7 +190,6 @@ public class ConfigurationLoader {
                 .toList();
 
         if (connectedTracks.size() >= 2) {
-            // Find main track (the one that's more horizontal)
             Track mainTrack = findMainTrack(connectedTracks);
             Track altTrack = connectedTracks.stream()
                     .filter(t -> t != mainTrack)
@@ -221,7 +202,6 @@ public class ConfigurationLoader {
                     altTrack.getId());
         }
     }
-
     /**
      * Finds the most horizontal track from a list of tracks.
      * Determines this by comparing the absolute slopes of the tracks.
@@ -229,6 +209,8 @@ public class ConfigurationLoader {
      * @return Track with the smallest absolute slope (most horizontal)
      */
     private Track findMainTrack(List<Track> tracks) {
+        // Stream method is used to get a Sequential Stream from the array
+        // passed as the parameter with its elements.
         return tracks.stream()
                 .min((t1, t2) -> {
                     double slope1 = Math.abs((t1.getEndY() -
@@ -249,7 +231,8 @@ public class ConfigurationLoader {
         if (!c1.getNeighbors().contains(c2)) {
             c1.addNeighbor(c2);
             c2.addNeighbor(c1);
-            System.out.println("Connected: " + c1.getId() + " <-> " + c2.getId());
+            System.out.println("Connected: " + c1.getId() + " <-> " +
+                    c2.getId());
         }
     }
 
@@ -269,7 +252,6 @@ public class ConfigurationLoader {
                 isNearPoint(t1.getEndX(), t1.getEndY(),
                         t2.getEndX(), t2.getEndY());
     }
-
     /**
      * Checks if a point lies on a track segment.
      * Uses a bounding box check followed by a cross product calculation
@@ -312,10 +294,6 @@ public class ConfigurationLoader {
 
     /**
      * Validates the entire configuration.
-     * Checks for:
-     * 1. Valid switch connections
-     * 2. No track crossings
-     * 3. All stations are connected
      * @throws IOException if any validation fails
      */
     private void validateConfiguration() throws IOException {
@@ -323,7 +301,6 @@ public class ConfigurationLoader {
         validateTrackCrossings();
         validateStationConnectivity();
     }
-
     /**
      * Validates that all switches have at least two track connections.
      * @throws IOException if a switch has insufficient connections
@@ -341,7 +318,6 @@ public class ConfigurationLoader {
             }
         }
     }
-
     /**
      * Validates that no tracks cross each other except at endpoints.
      * @throws IOException if any invalid track crossing is found
@@ -374,7 +350,6 @@ public class ConfigurationLoader {
 
     /**
      * Checks if two tracks intersect at any point other than their endpoints.
-     * Uses line segment intersection algorithm.
      * @param t1 First track to check
      * @param t2 Second track to check
      * @return true if tracks intersect
@@ -400,7 +375,6 @@ public class ConfigurationLoader {
     /**
      * Checks if a station is connected to at least one other station
      * through the rail network.
-     * Uses breadth-first search to find connected stations.
      * @param start Station to check
      * @return true if station is connected to at least one other station
      */
@@ -437,7 +411,6 @@ public class ConfigurationLoader {
 
     /**
      * Prints debug information about the configuration.
-     * Shows component counts and connection details.
      */
     private void printDebugInfo() {
         System.out.println("\nConfiguration Summary:");
@@ -447,9 +420,12 @@ public class ConfigurationLoader {
 
         System.out.println("\nComponent Connections:");
         for (Component comp : components) {
-            System.out.println(comp.getId() + " [" + comp.getClass().getSimpleName() +
-                    "] is connected to: " + comp.getNeighbors().stream()
-                    .map(n -> n.getId() + "[" + n.getClass().getSimpleName() + "]")
+            System.out.println(comp.getId() + " [" +
+                    comp.getClass().getSimpleName() +
+                    "] is connected to: " +
+                    comp.getNeighbors().stream()
+                    .map(n -> n.getId() + "[" + n.getClass().getSimpleName() +
+                            "]")
                     .reduce((a, b) -> a + ", " + b)
                     .orElse("none"));
         }

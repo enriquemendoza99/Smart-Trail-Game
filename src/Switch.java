@@ -1,26 +1,21 @@
+/**
+ * Represents a switch/turnout in the rail system.
+ * Controls connections between multiple tracks and manages switch position.
+ */
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Represents a switch/turnout in the rail system.
- * Controls connections between multiple tracks and manages switch position.
- * Switches can direct trains between main and alternate tracks based on the desired path.
- */
 public class Switch extends Component {
-    /** Primary track connected to this switch */
+    // Primary track connected to this switch
     private Component mainTrack;
-
-    /** Secondary track connected to this switch */
+    //Secondary track connected to this switch
     private Component altTrack;
-
-    /** Current switch position (true = main track, false = alternate track) */
+    //Current switch position (true = main track, false = alternate track)
     private boolean isMainPosition = true;
-
-    /** Set to track processed message IDs and prevent duplicate processing */
+    // Set to track processed message IDs and prevent duplicate processing
     private final Set<String> processedMessageIds = new HashSet<>();
-
     /**
      * Creates a new switch at specified coordinates.
      * Initially has no track connections.
@@ -30,11 +25,9 @@ public class Switch extends Component {
     public Switch(double x, double y) {
         super(x, y);
     }
-
     /**
-     * Configures the switch with its connected tracks.
-     * Clears existing connections and establishes new ones.
-     * Track connections are bidirectional.
+     * Configures the switch with its connected tracks and clears existing
+     * connections and establishes new ones.
      * @param mainTrack Primary track connection
      * @param altTrack Secondary track connection
      */
@@ -42,7 +35,6 @@ public class Switch extends Component {
         this.mainTrack = mainTrack;
         this.altTrack = altTrack;
 
-        // Ensure proper neighbor connections
         neighbors.clear();
         if (mainTrack != null) {
             addNeighbor(mainTrack);
@@ -55,10 +47,8 @@ public class Switch extends Component {
                 (mainTrack != null ? mainTrack.getId() : "none") +
                 ", alt=" + (altTrack != null ? altTrack.getId() : "none"));
     }
-
     /**
      * Processes incoming messages for this switch.
-     * Implements duplicate message detection.
      * Handles path finding, movement requests, and locking operations.
      * @param msg The message to process
      */
@@ -67,7 +57,6 @@ public class Switch extends Component {
         if (!processedMessageIds.add(msg.getMessageId())) {
             return;
         }
-
         switch (msg.getType()) {
             case FIND_PATH -> handleFindPath(msg);
             case PATH_RESPONSE -> handlePathResponse(msg);
@@ -76,14 +65,13 @@ public class Switch extends Component {
             case UNLOCK_REQUEST -> handleUnlockRequest(msg);
         }
     }
-
     /**
      * Handles path finding requests by forwarding to neighbors.
      * Excludes the source component to prevent cycles in path finding.
      * @param msg Path finding request message
      */
     private void handleFindPath(Message msg) {
-        // Forward to all neighbors except the source
+
         for (Component neighbor : getNeighbors()) {
             if (neighbor != msg.getSource()) {
                 Message newMsg = new Message(msg);
@@ -91,10 +79,8 @@ public class Switch extends Component {
             }
         }
     }
-
     /**
      * Handles path response messages during path finding.
-     * Adds this switch to the path and adjusts switch position based on next component.
      * @param msg Path response message
      */
     private void handlePathResponse(Message msg) {
@@ -111,11 +97,9 @@ public class Switch extends Component {
         }
         sendMessage(msg, msg.getTrain());
     }
-
     /**
      * Handles requests to lock this switch.
      * Locks switch if available and forwards lock request along path.
-     * Sets switch position based on the required path.
      * @param msg Lock request message
      */
     private void handleLockRequest(Message msg) {
@@ -145,7 +129,6 @@ public class Switch extends Component {
             sendMessage(response, msg.getTrain());
         }
     }
-
     /**
      * Handles train movement requests through this switch.
      * Locks switch and notifies train of successful movement.

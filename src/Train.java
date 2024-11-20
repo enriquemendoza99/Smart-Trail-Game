@@ -1,13 +1,12 @@
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Collections;
-import javafx.application.Platform;
-
 /**
  * Represents a train in the rail system.
  * Manages autonomous movement between stations, including path finding,
  * path locking, and movement coordination.
  */
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
+import javafx.application.Platform;
 
 public class Train extends Component {
     /**
@@ -25,31 +24,22 @@ public class Train extends Component {
         MOVING,
         EXITED
     }
-
-    /** Current operational status of the train */
+    // Current operational status of the train
     private Status status = Status.IDLE;
-
-    /** Current station location */
+    // Current station location
     private Station currentStation;
-
-    /** Target destination station */
+    // Target destination station
     private Station destination;
-
-    /** Current path being followed */
+    // Current path being followed
     private List<Component> currentPath;
-
-    /** Current position in path */
+    // Current position in path
     private int currentPathIndex;
-
-    /** Reference to GUI for updates */
+    // Reference to GUI for updates
     private final TrainGUI gui;
-
-    /** Delay between path-finding retry attempts (milliseconds) */
-    private static final long RETRY_DELAY = 1000; // 1 second delay before retrying path
-
-    /** Delay between movement steps (milliseconds) */
-    private static final long MOVEMENT_DELAY = 500; // 0.5 second between movements
-
+    // Delay between path-finding retry attempts
+    private static final long RETRY_DELAY = 1000;
+    // Delay between movement steps
+    private static final long MOVEMENT_DELAY = 500;
 
     /** Counter for lock retry attempts */
     private int lockRetryCount = 0;
@@ -59,8 +49,6 @@ public class Train extends Component {
 
     /**
      * Creates a new train at specified coordinates.
-     * Initializes in IDLE state.
-     *
      * @param x Initial X-coordinate
      * @param y Initial Y-coordinate
      * @param gui Reference to GUI for updates
@@ -90,12 +78,14 @@ public class Train extends Component {
      */
     public void setDestination(Station destination) {
         if (status != Status.IDLE) {
-            System.out.println("Train " + getId() + " is busy, cannot set destination");
+            System.out.println("Train " + getId() + " " +
+                    "is busy, cannot set destination");
             return;
         }
 
         if (destination == currentStation) {
-            System.out.println("Train " + getId() + " already at destination");
+            System.out.println("Train " + getId() + " " +
+                    "already at destination");
             return;
         }
 
@@ -112,7 +102,8 @@ public class Train extends Component {
     private void findPath() {
         System.out.println("Train " + getId() + " seeking path from " +
                 currentStation.getId() + " to " + destination.getId());
-        Message msg = new Message(Message.Type.FIND_PATH, this, currentStation, destination);
+        Message msg = new Message(Message.Type.FIND_PATH, this,
+                currentStation, destination);
         sendMessage(msg, currentStation);
     }
 
@@ -136,8 +127,7 @@ public class Train extends Component {
 
     /**
      * Handles path finding response messages.
-     * If path found, begins locking process.
-     * If no path found, shows error.
+     * If path found, begins locking process, otherwise shows error.
      * @param msg Path response message
      */
     private void handlePathResponse(Message msg) {
@@ -159,7 +149,6 @@ public class Train extends Component {
     /**
      * Handles lock response messages.
      * Continues locking path or starts movement if complete.
-     * Handles lock failures through retry mechanism.
      * @param msg Lock response message
      */
     private void handleLockResponse(Message msg) {
@@ -172,7 +161,8 @@ public class Train extends Component {
                 // All components locked, start moving
                 status = Status.MOVING;
                 currentPathIndex = 0;
-                System.out.println("Train " + getId() + " locked complete path, starting movement");
+                System.out.println("Train " + getId() + " locked complete " +
+                        "path, starting movement");
                 startMoving();
             }
         } else {
@@ -201,7 +191,8 @@ public class Train extends Component {
             currentPathIndex = 0;
             requestLock();
         } else {
-            System.out.println("Train " + getId() + " failed to lock path after " +
+            System.out.println("Train " + getId() + " failed to lock " +
+                    "path after " +
                     MAX_LOCK_RETRIES + " attempts");
             unlockPath();
             status = Status.IDLE;
@@ -210,9 +201,8 @@ public class Train extends Component {
     }
 
     /**
-     * Handles movement completion messages.
-     * Updates position and manages component transitions.
-     * Handles arrival at stations and destination.
+     * Handles movement completion messages.Updates position and handles station
+     * arrivals.
      * @param msg Movement completion message
      */
     private void handleMoveComplete(Message msg) {
@@ -227,7 +217,8 @@ public class Train extends Component {
                 currentStation = (Station) current;
 
                 // Unlock the previous station if it's different
-                if (previousStation != null && previousStation != currentStation) {
+                if (previousStation != null && previousStation !=
+                        currentStation) {
                     unlockComponent(previousStation);
                 }
 
@@ -245,7 +236,8 @@ public class Train extends Component {
             }
         } else {
             // Movement failed, retry path finding
-            System.out.println("Train " + getId() + " movement failed, retrying path finding");
+            System.out.println("Train " + getId() + " movement failed, " +
+                    "retrying path finding");
             status = Status.SEEKING_PATH;
             unlockPath();
             findPath();
@@ -257,7 +249,8 @@ public class Train extends Component {
      * Cleans up and removes train from system.
      */
     private void reachDestination() {
-        System.out.println("Train " + getId() + " reached destination " + destination.getId());
+        System.out.println("Train " + getId() + " reached destination " +
+                destination.getId());
         unlockPath();
         status = Status.EXITED;
         updateGUI();
@@ -265,21 +258,33 @@ public class Train extends Component {
         gui.removeTrainFromSystem(this);
     }
 
+    /**
+     * Sends lock request for next component in path.
+     */
     private void requestLock() {
         Component target = currentPath.get(currentPathIndex);
-        Message msg = new Message(Message.Type.LOCK_REQUEST, this, currentStation, destination);
+        Message msg = new Message(Message.Type.LOCK_REQUEST, this,
+                currentStation, destination);
         msg.setPath(currentPath);
-        System.out.println("Train " + getId() + " requesting lock for " + target.getId());
+        System.out.println("Train " + getId() + " requesting lock for "
+                + target.getId());
         sendMessage(msg, target);
     }
 
+    /**
+     * Begins movement along locked path.
+     */
     private void startMoving() {
         moveToNext();
     }
 
+    /**
+     * Moves to next component in path
+     */
     private void moveToNext() {
         if (currentPath == null || currentPathIndex >= currentPath.size()) {
-            System.out.println("Train " + getId() + " has no more components to move to");
+            System.out.println("Train " + getId() + " has no more components " +
+                    "to move to");
             return;
         }
 
@@ -287,10 +292,14 @@ public class Train extends Component {
         System.out.println("Train " + getId() + " moving to " + next.getId() +
                 " (" + (currentPathIndex + 1) + "/" + currentPath.size() + ")");
 
-        Message msg = new Message(Message.Type.MOVE_REQUEST, this, currentStation, next);
+        Message msg = new Message(Message.Type.MOVE_REQUEST, this,
+                currentStation, next);
         sendMessage(msg, next);
     }
 
+    /**
+     * Unlocks all components in current path.
+     */
     private void unlockPath() {
         if (currentPath != null) {
             for (Component component : currentPath) {
@@ -299,32 +308,43 @@ public class Train extends Component {
         }
     }
 
+    /**
+     * Sends unlock request to component.
+     * @param component component to unlock
+     */
     private void unlockComponent(Component component) {
-        Message msg = new Message(Message.Type.UNLOCK_REQUEST, this, this, component);
+        Message msg = new Message(Message.Type.UNLOCK_REQUEST, this,
+                this, component);
         sendMessage(msg, component);
     }
 
+    /**
+     * Updates train position to match component.
+     * @param component component to update
+     */
     private void updatePosition(Component component) {
         this.x = component.getX();
         this.y = component.getY();
     }
 
+    /**
+     * Updates GUI display
+     */
     public void updateGUI() {
         Platform.runLater(() -> gui.updateTrain(this));
     }
 
+    /**
+     * Gets current operational status of train.
+     * @return Current Status value
+     */
     public Status getStatus() {
         return status;
     }
-
-    public Station getCurrentStation() {
-        return currentStation;
-    }
-
-    public Station getDestination() {
-        return destination;
-    }
-
+    /**
+     * Returns string representation of train including position and status.
+     * @return string describing train statee
+     */
     @Override
     public String toString() {
         return getId() + " at (" + x + "," + y + ") status: " + status;

@@ -1,37 +1,29 @@
+/**
+ * Represents a section of track in the rail system.
+ * Handles train movement, path finding, and track segment management.
+ */
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Represents a section of track in the rail system.
- * Handles train movement, path finding, and track segment management.
- * Can be divided into multiple segments for more granular movement control.
- */
 public class Track extends Component {
-    /** X-coordinate of track start point */
+    // X-coordinate of track start point
     private final double startX;
-
-    /** Y-coordinate of track start point */
+    // Y-coordinate of track start point
     private final double startY;
-
-    /** X-coordinate of track end point */
+    // X-coordinate of track end point
     private final double endX;
-
-    /** Y-coordinate of track end point */
+    //Y-coordinate of track end point
     private final double endY;
-
-    /** Number of segments this track is divided into */
+    // Number of segments this track is divided into
     private final int segments;
-
-    /** Set to track processed message IDs and prevent duplicate processing */
+    // Set to track processed message IDs and prevent duplicate processing
     private final Set<String> processedMessageIds = new HashSet<>();
-
-    /** Number of steps for smooth train movement animation */
+    //Number of steps for smooth train movement animation
     private static final int MOVEMENT_STEPS = 50;
-
-    /** Base delay between movement steps (milliseconds) */
-    private static final long MOVEMENT_DELAY = 50; // Faster movement
+    // Base delay between movement steps
+    private static final long MOVEMENT_DELAY = 50;
 
     /**
      * Creates a new track section with specified endpoints and segments.
@@ -41,7 +33,8 @@ public class Track extends Component {
      * @param endY Y-coordinate of end point
      * @param segments Number of segments to divide track into
      */
-    public Track(double startX, double startY, double endX, double endY, int segments) {
+    public Track(double startX, double startY, double endX, double endY,
+                 int segments) {
         super(startX, startY);
         this.startX = startX;
         this.startY = startY;
@@ -118,16 +111,17 @@ public class Track extends Component {
                 }
             }
 
-            Message response = new Message(Message.Type.LOCK_RESPONSE, msg.getTrain(), this, msg.getTrain());
+            Message response = new Message(Message.Type.LOCK_RESPONSE,
+                    msg.getTrain(), this, msg.getTrain());
             response.setSuccess(true);
             sendMessage(response, msg.getTrain());
         } else {
-            Message response = new Message(Message.Type.LOCK_RESPONSE, msg.getTrain(), this, msg.getTrain());
+            Message response = new Message(Message.Type.LOCK_RESPONSE,
+                    msg.getTrain(), this, msg.getTrain());
             response.setSuccess(false);
             sendMessage(response, msg.getTrain());
         }
     }
-
     /**
      * Handles train movement requests through this track section.
      * Creates a new thread to handle smooth movement animation.
@@ -140,7 +134,9 @@ public class Track extends Component {
             Thread moveThread = new Thread(() -> {
                 try {
                     moveTrainAlongTrack(msg.getTrain());
-                    Message complete = new Message(Message.Type.MOVE_COMPLETE, msg.getTrain(), this, msg.getTrain());
+                    Message complete = new Message(
+                            Message.Type.MOVE_COMPLETE, msg.getTrain(),
+                            this, msg.getTrain());
                     complete.setSuccess(true);
                     sendMessage(complete, msg.getTrain());
                 } catch (InterruptedException e) {
@@ -150,12 +146,12 @@ public class Track extends Component {
             moveThread.setDaemon(true);
             moveThread.start();
         } else {
-            Message complete = new Message(Message.Type.MOVE_COMPLETE, msg.getTrain(), this, msg.getTrain());
+            Message complete = new Message(Message.Type.MOVE_COMPLETE,
+                    msg.getTrain(), this, msg.getTrain());
             complete.setSuccess(false);
             sendMessage(complete, msg.getTrain());
         }
     }
-
     /**
      * Moves a train along this track section using smooth animation.
      * Adjusts movement speed based on number of segments.
@@ -172,7 +168,6 @@ public class Track extends Component {
             Thread.sleep(MOVEMENT_DELAY / segments);
         }
 
-        // Ensure train reaches exact endpoint
         train.x = endX;
         train.y = endY;
         train.updateGUI();
@@ -225,6 +220,7 @@ public class Track extends Component {
      */
     @Override
     public String toString() {
-        return String.format("%s [(%f,%f) to (%f,%f)]", getId(), startX, startY, endX, endY);
+        return String.format("%s [(%f,%f) to (%f,%f)]", getId(), startX,
+                startY, endX, endY);
     }
 }
