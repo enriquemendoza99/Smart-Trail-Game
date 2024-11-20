@@ -3,13 +3,44 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Represents a section of track in the rail system.
+ * Handles train movement, path finding, and track segment management.
+ * Can be divided into multiple segments for more granular movement control.
+ */
 public class Track extends Component {
-    private final double startX, startY, endX, endY;
+    /** X-coordinate of track start point */
+    private final double startX;
+
+    /** Y-coordinate of track start point */
+    private final double startY;
+
+    /** X-coordinate of track end point */
+    private final double endX;
+
+    /** Y-coordinate of track end point */
+    private final double endY;
+
+    /** Number of segments this track is divided into */
     private final int segments;
+
+    /** Set to track processed message IDs and prevent duplicate processing */
     private final Set<String> processedMessageIds = new HashSet<>();
+
+    /** Number of steps for smooth train movement animation */
     private static final int MOVEMENT_STEPS = 50;
+
+    /** Base delay between movement steps (milliseconds) */
     private static final long MOVEMENT_DELAY = 50; // Faster movement
 
+    /**
+     * Creates a new track section with specified endpoints and segments.
+     * @param startX X-coordinate of start point
+     * @param startY Y-coordinate of start point
+     * @param endX X-coordinate of end point
+     * @param endY Y-coordinate of end point
+     * @param segments Number of segments to divide track into
+     */
     public Track(double startX, double startY, double endX, double endY, int segments) {
         super(startX, startY);
         this.startX = startX;
@@ -19,6 +50,12 @@ public class Track extends Component {
         this.segments = segments;
     }
 
+    /**
+     * Processes incoming messages for this track.
+     * Implements duplicate message detection.
+     * Handles path finding, movement requests, and locking operations.
+     * @param msg The message to process
+     */
     @Override
     protected void processMessage(Message msg) {
         if (!processedMessageIds.add(msg.getMessageId())) {
@@ -34,6 +71,11 @@ public class Track extends Component {
         }
     }
 
+    /**
+     * Handles path finding requests by forwarding to neighbors.
+     * Excludes the source component to prevent cycles in path finding.
+     * @param msg Path finding request message
+     */
     private void handleFindPath(Message msg) {
         for (Component neighbor : getNeighbors()) {
             if (neighbor != msg.getSource()) {
@@ -43,6 +85,11 @@ public class Track extends Component {
         }
     }
 
+    /**
+     * Handles path response messages during path finding.
+     * Adds this track to the path.
+     * @param msg Path response message
+     */
     private void handlePathResponse(Message msg) {
         if (msg.getPath() != null) {
             List<Component> newPath = new ArrayList<>(msg.getPath());
@@ -52,6 +99,11 @@ public class Track extends Component {
         sendMessage(msg, msg.getTrain());
     }
 
+    /**
+     * Handles requests to lock this track section.
+     * Locks track if available and forwards lock request along path.
+     * @param msg Lock request message
+     */
     private void handleLockRequest(Message msg) {
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
@@ -76,6 +128,11 @@ public class Track extends Component {
         }
     }
 
+    /**
+     * Handles train movement requests through this track section.
+     * Creates a new thread to handle smooth movement animation.
+     * @param msg Move request message
+     */
     private void handleMoveRequest(Message msg) {
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
@@ -99,6 +156,13 @@ public class Track extends Component {
         }
     }
 
+    /**
+     * Moves a train along this track section using smooth animation.
+     * Adjusts movement speed based on number of segments.
+     * Updates train position and GUI at each step.
+     * @param train Train to move
+     * @throws InterruptedException if movement is interrupted
+     */
     private void moveTrainAlongTrack(Train train) throws InterruptedException {
         for (int i = 0; i <= MOVEMENT_STEPS; i++) {
             double progress = (double) i / MOVEMENT_STEPS;
@@ -114,18 +178,51 @@ public class Track extends Component {
         train.updateGUI();
     }
 
+    /**
+     * Handles requests to unlock this track section.
+     * Only unlocks if requested by occupying train.
+     * @param msg Unlock request message
+     */
     private void handleUnlockRequest(Message msg) {
         if (occupyingTrain == msg.getTrain()) {
             unlock();
         }
     }
 
+    /**
+     * Gets the X-coordinate of track start point.
+     * @return Start X-coordinate
+     */
     public double getStartX() { return startX; }
+
+    /**
+     * Gets the Y-coordinate of track start point.
+     * @return Start Y-coordinate
+     */
     public double getStartY() { return startY; }
+
+    /**
+     * Gets the X-coordinate of track end point.
+     * @return End X-coordinate
+     */
     public double getEndX() { return endX; }
+
+    /**
+     * Gets the Y-coordinate of track end point.
+     * @return End Y-coordinate
+     */
     public double getEndY() { return endY; }
+
+    /**
+     * Gets the number of segments in this track section.
+     * @return Number of segments
+     */
     public int getSegments() { return segments; }
 
+    /**
+     * Returns string representation of this track section.
+     * @return String containing track ID and endpoint coordinates
+     */
     @Override
     public String toString() {
         return String.format("%s [(%f,%f) to (%f,%f)]", getId(), startX, startY, endX, endY);

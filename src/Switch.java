@@ -3,16 +3,41 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Represents a switch/turnout in the rail system.
+ * Controls connections between multiple tracks and manages switch position.
+ * Switches can direct trains between main and alternate tracks based on the desired path.
+ */
 public class Switch extends Component {
+    /** Primary track connected to this switch */
     private Component mainTrack;
+
+    /** Secondary track connected to this switch */
     private Component altTrack;
+
+    /** Current switch position (true = main track, false = alternate track) */
     private boolean isMainPosition = true;
+
+    /** Set to track processed message IDs and prevent duplicate processing */
     private final Set<String> processedMessageIds = new HashSet<>();
 
+    /**
+     * Creates a new switch at specified coordinates.
+     * Initially has no track connections.
+     * @param x X-coordinate in the rail system
+     * @param y Y-coordinate in the rail system
+     */
     public Switch(double x, double y) {
         super(x, y);
     }
 
+    /**
+     * Configures the switch with its connected tracks.
+     * Clears existing connections and establishes new ones.
+     * Track connections are bidirectional.
+     * @param mainTrack Primary track connection
+     * @param altTrack Secondary track connection
+     */
     public void setTracks(Component mainTrack, Component altTrack) {
         this.mainTrack = mainTrack;
         this.altTrack = altTrack;
@@ -31,6 +56,12 @@ public class Switch extends Component {
                 ", alt=" + (altTrack != null ? altTrack.getId() : "none"));
     }
 
+    /**
+     * Processes incoming messages for this switch.
+     * Implements duplicate message detection.
+     * Handles path finding, movement requests, and locking operations.
+     * @param msg The message to process
+     */
     @Override
     protected void processMessage(Message msg) {
         if (!processedMessageIds.add(msg.getMessageId())) {
@@ -46,6 +77,11 @@ public class Switch extends Component {
         }
     }
 
+    /**
+     * Handles path finding requests by forwarding to neighbors.
+     * Excludes the source component to prevent cycles in path finding.
+     * @param msg Path finding request message
+     */
     private void handleFindPath(Message msg) {
         // Forward to all neighbors except the source
         for (Component neighbor : getNeighbors()) {
@@ -56,6 +92,11 @@ public class Switch extends Component {
         }
     }
 
+    /**
+     * Handles path response messages during path finding.
+     * Adds this switch to the path and adjusts switch position based on next component.
+     * @param msg Path response message
+     */
     private void handlePathResponse(Message msg) {
         if (msg.getPath() != null) {
             List<Component> newPath = new ArrayList<>(msg.getPath());
@@ -71,6 +112,12 @@ public class Switch extends Component {
         sendMessage(msg, msg.getTrain());
     }
 
+    /**
+     * Handles requests to lock this switch.
+     * Locks switch if available and forwards lock request along path.
+     * Sets switch position based on the required path.
+     * @param msg Lock request message
+     */
     private void handleLockRequest(Message msg) {
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
@@ -87,16 +134,23 @@ public class Switch extends Component {
                 }
             }
 
-            Message response = new Message(Message.Type.LOCK_RESPONSE, msg.getTrain(), this, msg.getTrain());
+            Message response = new Message(Message.Type.LOCK_RESPONSE,
+                    msg.getTrain(), this, msg.getTrain());
             response.setSuccess(true);
             sendMessage(response, msg.getTrain());
         } else {
-            Message response = new Message(Message.Type.LOCK_RESPONSE, msg.getTrain(), this, msg.getTrain());
+            Message response = new Message(Message.Type.LOCK_RESPONSE,
+                    msg.getTrain(), this, msg.getTrain());
             response.setSuccess(false);
             sendMessage(response, msg.getTrain());
         }
     }
 
+    /**
+     * Handles train movement requests through this switch.
+     * Locks switch and notifies train of successful movement.
+     * @param msg Move request message
+     */
     private void handleMoveRequest(Message msg) {
         if (!isLocked || occupyingTrain == msg.getTrain()) {
             lock(msg.getTrain());
@@ -110,20 +164,37 @@ public class Switch extends Component {
         }
     }
 
+    /**
+     * Handles requests to unlock this switch.
+     * Only unlocks if requested by occupying train.
+     * @param msg Unlock request message
+     */
     private void handleUnlockRequest(Message msg) {
         if (occupyingTrain == msg.getTrain()) {
             unlock();
         }
     }
 
+    /**
+     * Gets the current position of the switch.
+     * @return true if switch is in main position, false if in alternate position
+     */
     public boolean isMainPosition() {
         return isMainPosition;
     }
 
+    /**
+     * Gets the main track connected to this switch.
+     * @return The main track component
+     */
     public Component getMainTrack() {
         return mainTrack;
     }
 
+    /**
+     * Gets the alternate track connected to this switch.
+     * @return The alternate track component
+     */
     public Component getAltTrack() {
         return altTrack;
     }

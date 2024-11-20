@@ -1,14 +1,37 @@
 import java.io.*;
 import java.util.*;
 
+/**
+ * Configuration Loader for the SmartRail system.
+ * Responsible for reading rail system configuration from a file and creating a
+ * valid rail network. Performs validation of the layout and ensures proper
+ * connectivity between components.
+ */
 public class ConfigurationLoader {
+    /** List of all components in the rail system */
     private final List<Component> components = new ArrayList<>();
+
+    /** List of all stations in the rail system */
     private final List<Station> stations = new ArrayList<>();
+
+    /** List of all tracks in the rail system */
     private final List<Track> tracks = new ArrayList<>();
+
+    /** List of all switches in the rail system */
     private final List<Switch> switches = new ArrayList<>();
+
+    /** Map of components indexed by their location coordinates */
     private final Map<String, Component> componentsByLocation = new HashMap<>();
+
+    /** Tolerance value for floating-point coordinate comparisons */
     private static final double EPSILON = 0.1;
 
+    /**
+     * Loads and validates a rail system configuration from a file.
+     * @param filename Path to the configuration file
+     * @return A fully configured RailSystem instance
+     * @throws IOException If configuration is invalid or file cannot be read
+     */
     public RailSystem loadConfiguration(String filename) throws IOException {
         loadComponents(filename);
         createConnections();
@@ -17,6 +40,16 @@ public class ConfigurationLoader {
         return new RailSystem(components, stations);
     }
 
+    /**
+     * Reads components from the configuration file and creates them.
+     * Each line should be in one of these formats:
+     * - station x y
+     * - switch x y
+     * - track x1 y1 x2 y2 [segments]
+     *
+     * @param filename Path to the configuration file
+     * @throws IOException If file format is invalid or file cannot be read
+     */
     private void loadComponents(String filename) throws IOException {
         try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
             String line;
@@ -34,12 +67,17 @@ public class ConfigurationLoader {
                         case "track" -> createTrack(parts);
                     }
                 } catch (NumberFormatException e) {
-                    throw new IOException("Invalid number format in line: " + line);
+                    throw new IOException("Invalid number format in line: " +
+                            line);
                 }
             }
         }
     }
 
+    /**
+     * Creates a station from configuration file data.
+     * @param parts Array containing [station, x, y]
+     */
     private void createStation(String[] parts) {
         double x = Double.parseDouble(parts[1]);
         double y = Double.parseDouble(parts[2]);
@@ -47,9 +85,14 @@ public class ConfigurationLoader {
         stations.add(station);
         components.add(station);
         componentsByLocation.put(getLocationKey(x, y), station);
-        System.out.println("Created station: " + station.getId() + " at (" + x + "," + y + ")");
+        System.out.println("Created station: " + station.getId() + " at (" + x +
+                "," + y + ")");
     }
 
+    /**
+     * Creates a switch from configuration file data.
+     * @param parts Array containing [switch, x, y]
+     */
     private void createSwitch(String[] parts) {
         double x = Double.parseDouble(parts[1]);
         double y = Double.parseDouble(parts[2]);
@@ -57,12 +100,19 @@ public class ConfigurationLoader {
         switches.add(sw);
         components.add(sw);
         componentsByLocation.put(getLocationKey(x, y), sw);
-        System.out.println("Created switch: " + sw.getId() + " at (" + x + "," + y + ")");
+        System.out.println("Created switch: " + sw.getId() + " at (" + x + "," +
+                y + ")");
     }
 
+    /**
+     * Creates a track from configuration file data.
+     * @param parts Array containing [track, x1, y1, x2, y2, segments(optional)]
+     * @throws IllegalArgumentException If track parameters are invalid
+     */
     private void createTrack(String[] parts) {
         if (parts.length < 5) {
-            throw new IllegalArgumentException("Invalid track format: " + String.join(" ", parts));
+            throw new IllegalArgumentException("Invalid track format: " +
+                    String.join(" ", parts));
         }
 
         double x1 = Double.parseDouble(parts[1]);
@@ -78,9 +128,17 @@ public class ConfigurationLoader {
         Track track = new Track(x1, y1, x2, y2, segments);
         tracks.add(track);
         components.add(track);
-        System.out.println("Created track: " + track.getId() + " from (" + x1 + "," + y1 + ") to (" + x2 + "," + y2 + ")");
+        System.out.println("Created track: " + track.getId() + " from (" + x1 +
+                "," + y1 + ") to (" + x2 + "," + y2 + ")");
     }
 
+    /**
+     * Creates all necessary connections between components.
+     * Performs connection in three phases:
+     * 1. Connect tracks to their endpoints
+     * 2. Connect tracks that share endpoints
+     * 3. Configure switches with their connected tracks
+     */
     private void createConnections() {
         // First connect tracks to their endpoints and switches
         for (Track track : tracks) {
@@ -100,13 +158,20 @@ public class ConfigurationLoader {
         }
     }
 
+    /**
+     * Connects a track to its endpoint components and any switches along its
+     * length.
+     * @param track The track to connect
+     */
     private void connectTrackEndpoints(Track track) {
         // Connect to components at track endpoints
         for (Component comp : components) {
             if (comp instanceof Track) continue;
 
-            if (isNearPoint(comp.getX(), comp.getY(), track.getStartX(), track.getStartY()) ||
-                    isNearPoint(comp.getX(), comp.getY(), track.getEndX(), track.getEndY())) {
+            if (isNearPoint(comp.getX(), comp.getY(), track.getStartX(),
+                    track.getStartY()) ||
+                    isNearPoint(comp.getX(), comp.getY(), track.getEndX(),
+                            track.getEndY())) {
                 connect(track, comp);
             }
         }
@@ -119,12 +184,22 @@ public class ConfigurationLoader {
         }
     }
 
+    /**
+     * Connects two tracks if they share an endpoint.
+     * @param t1 First track to check
+     * @param t2 Second track to check
+     */
     private void connectTracksIfShared(Track t1, Track t2) {
         if (tracksShare(t1, t2)) {
             connect(t1, t2);
         }
     }
 
+    /**
+     * Configures a switch with its main and alternate tracks.
+     * Main track is determined by finding the most horizontal track.
+     * @param sw The switch to configure
+     */
     private void configureSwitch(Switch sw) {
         List<Track> connectedTracks = sw.getNeighbors().stream()
                 .filter(c -> c instanceof Track)
@@ -142,20 +217,34 @@ public class ConfigurationLoader {
 
             sw.setTracks(mainTrack, altTrack);
             System.out.println("Configured switch " + sw.getId() +
-                    " with main=" + mainTrack.getId() + ", alt=" + altTrack.getId());
+                    " with main=" + mainTrack.getId() + ", alt=" +
+                    altTrack.getId());
         }
     }
 
+    /**
+     * Finds the most horizontal track from a list of tracks.
+     * Determines this by comparing the absolute slopes of the tracks.
+     * @param tracks List of tracks to evaluate
+     * @return Track with the smallest absolute slope (most horizontal)
+     */
     private Track findMainTrack(List<Track> tracks) {
         return tracks.stream()
                 .min((t1, t2) -> {
-                    double slope1 = Math.abs((t1.getEndY() - t1.getStartY()) / (t1.getEndX() - t1.getStartX()));
-                    double slope2 = Math.abs((t2.getEndY() - t2.getStartY()) / (t2.getEndX() - t2.getStartX()));
+                    double slope1 = Math.abs((t1.getEndY() -
+                            t1.getStartY()) / (t1.getEndX() - t1.getStartX()));
+                    double slope2 = Math.abs((t2.getEndY() -
+                            t2.getStartY()) / (t2.getEndX() - t2.getStartX()));
                     return Double.compare(slope1, slope2);
                 })
                 .orElse(tracks.get(0));
     }
 
+    /**
+     * Creates a bidirectional connection between two components.
+     * @param c1 First component to connect
+     * @param c2 Second component to connect
+     */
     private void connect(Component c1, Component c2) {
         if (!c1.getNeighbors().contains(c2)) {
             c1.addNeighbor(c2);
@@ -164,39 +253,81 @@ public class ConfigurationLoader {
         }
     }
 
+    /**
+     * Checks if two tracks share any endpoints.
+     * @param t1 First track to check
+     * @param t2 Second track to check
+     * @return true if tracks share any endpoint
+     */
     private boolean tracksShare(Track t1, Track t2) {
-        return isNearPoint(t1.getStartX(), t1.getStartY(), t2.getStartX(), t2.getStartY()) ||
-                isNearPoint(t1.getStartX(), t1.getStartY(), t2.getEndX(), t2.getEndY()) ||
-                isNearPoint(t1.getEndX(), t1.getEndY(), t2.getStartX(), t2.getStartY()) ||
-                isNearPoint(t1.getEndX(), t1.getEndY(), t2.getEndX(), t2.getEndY());
+        return isNearPoint(t1.getStartX(), t1.getStartY(),
+                t2.getStartX(), t2.getStartY()) ||
+                isNearPoint(t1.getStartX(), t1.getStartY(),
+                        t2.getEndX(), t2.getEndY()) ||
+                isNearPoint(t1.getEndX(), t1.getEndY(),
+                        t2.getStartX(), t2.getStartY()) ||
+                isNearPoint(t1.getEndX(), t1.getEndY(),
+                        t2.getEndX(), t2.getEndY());
     }
 
+    /**
+     * Checks if a point lies on a track segment.
+     * Uses a bounding box check followed by a cross product calculation
+     * to determine if the point lies on the line defined by the track.
+     * @param px X-coordinate of point to check
+     * @param py Y-coordinate of point to check
+     * @param track Track to check against
+     * @return true if the point lies on the track
+     */
     private boolean isPointOnTrack(double px, double py, Track track) {
         double x1 = track.getStartX(), y1 = track.getStartY();
         double x2 = track.getEndX(), y2 = track.getEndY();
 
         // Check if point is within track's bounding box
-        if (px < Math.min(x1, x2) - EPSILON || px > Math.max(x1, x2) + EPSILON ||
-                py < Math.min(y1, y2) - EPSILON || py > Math.max(y1, y2) + EPSILON) {
+        if (px < Math.min(x1, x2) - EPSILON || px > Math.max(x1, x2) +
+                EPSILON ||
+                py < Math.min(y1, y2) - EPSILON || py > Math.max(y1, y2) +
+                EPSILON) {
             return false;
         }
 
         // Check if point lies on the track line
-        double crossProduct = Math.abs((y2 - y1) * (px - x1) - (x2 - x1) * (py - y1));
+        double crossProduct = Math.abs((y2 - y1) * (px - x1) -
+                (x2 - x1) * (py - y1));
         double lineLength = Math.hypot(x2 - x1, y2 - y1);
         return crossProduct / lineLength < EPSILON;
     }
 
+    /**
+     * Checks if two points are within EPSILON distance of each other.
+     * @param x1 First point X coordinate
+     * @param y1 First point Y coordinate
+     * @param x2 Second point X coordinate
+     * @param y2 Second point Y coordinate
+     * @return true if points are considered to be at the same location
+     */
     private boolean isNearPoint(double x1, double y1, double x2, double y2) {
         return Math.hypot(x2 - x1, y2 - y1) < EPSILON;
     }
 
+    /**
+     * Validates the entire configuration.
+     * Checks for:
+     * 1. Valid switch connections
+     * 2. No track crossings
+     * 3. All stations are connected
+     * @throws IOException if any validation fails
+     */
     private void validateConfiguration() throws IOException {
         validateSwitchConnections();
         validateTrackCrossings();
         validateStationConnectivity();
     }
 
+    /**
+     * Validates that all switches have at least two track connections.
+     * @throws IOException if a switch has insufficient connections
+     */
     private void validateSwitchConnections() throws IOException {
         for (Switch sw : switches) {
             long trackConnections = sw.getNeighbors().stream()
@@ -204,12 +335,17 @@ public class ConfigurationLoader {
                     .count();
 
             if (trackConnections < 2) {
-                throw new IOException("Switch at (" + sw.getX() + "," + sw.getY() +
-                        ") has insufficient connections: " + trackConnections);
+                throw new IOException("Switch at (" + sw.getX() + "," +
+                        sw.getY() + ") has insufficient connections: " +
+                        trackConnections);
             }
         }
     }
 
+    /**
+     * Validates that no tracks cross each other except at endpoints.
+     * @throws IOException if any invalid track crossing is found
+     */
     private void validateTrackCrossings() throws IOException {
         for (int i = 0; i < tracks.size(); i++) {
             for (int j = i + 1; j < tracks.size(); j++) {
@@ -223,6 +359,10 @@ public class ConfigurationLoader {
         }
     }
 
+    /**
+     * Validates that all stations are connected to at least one other station.
+     * @throws IOException if any isolated station is found
+     */
     private void validateStationConnectivity() throws IOException {
         for (Station station : stations) {
             if (!isStationConnected(station)) {
@@ -232,6 +372,13 @@ public class ConfigurationLoader {
         }
     }
 
+    /**
+     * Checks if two tracks intersect at any point other than their endpoints.
+     * Uses line segment intersection algorithm.
+     * @param t1 First track to check
+     * @param t2 Second track to check
+     * @return true if tracks intersect
+     */
     private boolean tracksIntersect(Track t1, Track t2) {
         if (tracksShare(t1, t2)) return false;
 
@@ -246,9 +393,17 @@ public class ConfigurationLoader {
         double ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
         double ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
 
-        return ua > EPSILON && ua < 1 - EPSILON && ub > EPSILON && ub < 1 - EPSILON;
+        return ua > EPSILON && ua < 1 - EPSILON && ub > EPSILON && ub < 1 -
+                EPSILON;
     }
 
+    /**
+     * Checks if a station is connected to at least one other station
+     * through the rail network.
+     * Uses breadth-first search to find connected stations.
+     * @param start Station to check
+     * @return true if station is connected to at least one other station
+     */
     private boolean isStationConnected(Station start) {
         Set<Component> visited = new HashSet<>();
         Queue<Component> queue = new LinkedList<>();
@@ -270,10 +425,20 @@ public class ConfigurationLoader {
         return false;
     }
 
+    /**
+     * Creates a unique key for a location in the rail system.
+     * @param x X-coordinate
+     * @param y Y-coordinate
+     * @return String key representing the location
+     */
     private String getLocationKey(double x, double y) {
         return String.format("%.2f,%.2f", x, y);
     }
 
+    /**
+     * Prints debug information about the configuration.
+     * Shows component counts and connection details.
+     */
     private void printDebugInfo() {
         System.out.println("\nConfiguration Summary:");
         System.out.println("Stations: " + stations.size());

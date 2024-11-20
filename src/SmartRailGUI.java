@@ -13,19 +13,50 @@ import javafx.scene.text.TextAlignment;
 import java.util.*;
 import java.io.*;
 
+/**
+ * JavaFX GUI implementation for the SmartRail system.
+ * Provides visual representation of the rail network and controls for train management.
+ * Implements TrainGUI interface to handle train status updates and error conditions.
+ */
 public class SmartRailGUI extends Application implements TrainGUI {
+    /** Canvas for drawing the rail network */
     private Canvas railCanvas;
+
+    /** List of all components in the rail system */
     private List<Component> components = new ArrayList<>();
+
+    /** List of active trains in the system */
     private List<Train> trains = new ArrayList<>();
+
+    /** List of all stations in the system */
     private List<Station> stations = new ArrayList<>();
+
+    /** ComboBox for selecting source station */
     private ComboBox<Station> sourceStationBox;
+
+    /** ComboBox for selecting destination station */
     private ComboBox<Station> destStationBox;
+
+    /** Button to add new trains */
     private Button addTrainButton;
+
+    /** Scaling factor for converting coordinates to pixels */
     private static final double SCALE_FACTOR = 50.0;
+
+    /** Padding around the canvas edges */
     private static final double CANVAS_PADDING = 50.0;
+
+    /** Container for the canvas */
     private Pane canvasContainer;
+
+    /** Flag indicating if any train is currently moving */
     private boolean isTrainMoving = false;
 
+    /**
+     * Initializes and starts the GUI application.
+     * Sets up the main window, loads configuration, and starts simulation.
+     * @param primaryStage The primary stage for the application
+     */
     @Override
     public void start(Stage primaryStage) {
         try {
@@ -50,7 +81,8 @@ public class SmartRailGUI extends Application implements TrainGUI {
             // Load configuration
             List<String> args = getParameters().getRaw();
             if (args.isEmpty()) {
-                showError("Configuration Error", "No configuration file specified");
+                showError("Configuration Error",
+                        "No configuration file specified");
                 return;
             }
 
@@ -66,11 +98,16 @@ public class SmartRailGUI extends Application implements TrainGUI {
             startRenderLoop();
 
         } catch (Exception e) {
-            showError("Error", "Failed to start application: " + e.getMessage());
+            showError("Error",
+                    "Failed to start application: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
+    /**
+     * Creates the canvas for rendering the rail network.
+     * Sets up canvas size and bindings.
+     */
     private void createCanvas() {
         railCanvas = new Canvas(900, 700);
         canvasContainer.getChildren().add(railCanvas);
@@ -79,6 +116,11 @@ public class SmartRailGUI extends Application implements TrainGUI {
         railCanvas.heightProperty().bind(canvasContainer.heightProperty());
     }
 
+    /**
+     * Creates the control panel for train management.
+     * Includes station selection, train addition controls, and legend.
+     * @return VBox containing the control panel elements
+     */
     private VBox createControlPanel() {
         VBox panel = new VBox(10);
         panel.setPadding(new Insets(10));
@@ -114,6 +156,10 @@ public class SmartRailGUI extends Application implements TrainGUI {
         return panel;
     }
 
+    /**
+     * Creates a legend explaining the color coding of components.
+     * @return TitledPane containing the legend
+     */
     private TitledPane createLegend() {
         VBox legendContent = new VBox(5);
         legendContent.setPadding(new Insets(5));
@@ -139,6 +185,10 @@ public class SmartRailGUI extends Application implements TrainGUI {
         return new TitledPane("Legend", legendContent);
     }
 
+    /**
+     * Starts the render loop for continuous display updates.
+     * Uses AnimationTimer for smooth rendering.
+     */
     private void startRenderLoop() {
         AnimationTimer timer = new AnimationTimer() {
             @Override
@@ -149,6 +199,10 @@ public class SmartRailGUI extends Application implements TrainGUI {
         timer.start();
     }
 
+    /**
+     * Draws the complete rail network.
+     * Renders grid, tracks, switches, stations, and trains.
+     */
     private void drawRailNetwork() {
         if (railCanvas == null) return;
 
@@ -183,6 +237,10 @@ public class SmartRailGUI extends Application implements TrainGUI {
         }
     }
 
+    /**
+     * Draws the background grid.
+     * @param gc GraphicsContext for drawing
+     */
     private void drawGrid(GraphicsContext gc) {
         gc.setStroke(Color.LIGHTGRAY);
         gc.setLineWidth(0.5);
@@ -207,6 +265,12 @@ public class SmartRailGUI extends Application implements TrainGUI {
         }
     }
 
+    /**
+     * Draws a switch component.
+     * Orange when unlocked, red when locked.
+     * @param sw Switch to draw
+     * @param gc GraphicsContext for drawing
+     */
     private void drawSwitch(Switch sw, GraphicsContext gc) {
         double x = transformX(sw.getX());
         double y = transformY(sw.getY());
@@ -219,6 +283,13 @@ public class SmartRailGUI extends Application implements TrainGUI {
         gc.strokeOval(x - 8, y - 8, 16, 16);
     }
 
+    /**
+     * Draws a track component.
+     * Black when unlocked, red when locked.
+     * Shows segment markers for multi-segment tracks.
+     * @param track Track to draw
+     * @param gc GraphicsContext for drawing
+     */
     private void drawTrack(Track track, GraphicsContext gc) {
         gc.setStroke(track.isLocked() ? Color.RED : Color.BLACK);
         gc.setLineWidth(2);
@@ -242,6 +313,13 @@ public class SmartRailGUI extends Application implements TrainGUI {
         }
     }
 
+    /**
+     * Draws a station component.
+     * Green when unlocked, red when locked.
+     * Shows station name.
+     * @param station Station to draw
+     * @param gc GraphicsContext for drawing
+     */
     private void drawStation(Station station, GraphicsContext gc) {
         double x = transformX(station.getX());
         double y = transformY(station.getY());
@@ -258,6 +336,17 @@ public class SmartRailGUI extends Application implements TrainGUI {
         gc.fillText(station.getName(), x, y + 5);
     }
 
+    /**
+     * Draws a train.
+     * Color indicates train status:
+     * - Gray: Idle
+     * - Yellow: Seeking path
+     * - Purple: Locking path
+     * - Green: Moving
+     * - Transparent: Exited
+     * @param train Train to draw
+     * @param gc GraphicsContext for drawing
+     */
     private void drawTrain(Train train, GraphicsContext gc) {
         Color trainColor = switch (train.getStatus()) {
             case IDLE -> Color.GRAY;
@@ -280,13 +369,26 @@ public class SmartRailGUI extends Application implements TrainGUI {
         }
     }
 
+    /**
+     * Transforms model X coordinate to screen coordinate.
+     */
     private double transformX(double x) {
         return x * SCALE_FACTOR + CANVAS_PADDING;
     }
 
+    /**
+     * Transforms model Y coordinate to screen coordinate.
+     */
     private double transformY(double y) {
         return y * SCALE_FACTOR + CANVAS_PADDING;
     }
+
+    /**
+     * Loads rail system configuration from file.
+     * Initializes components and station selection controls.
+     * @param filename Path to configuration file
+     * @throws IOException if configuration cannot be loaded
+     */
 
     private void loadConfiguration(String filename) throws IOException {
         ConfigurationLoader loader = new ConfigurationLoader();
@@ -306,17 +408,23 @@ public class SmartRailGUI extends Application implements TrainGUI {
         }
     }
 
+    /**
+     * Creates and adds a new train to the system.
+     * Validates station selection and handles UI state.
+     */
     private void addNewTrain() {
         Station source = sourceStationBox.getValue();
         Station dest = destStationBox.getValue();
 
         if (source == null || dest == null) {
-            showError("Selection Error", "Please select both source and destination stations");
+            showError("Selection Error",
+                    "Please select both source and destination stations");
             return;
         }
 
         if (source == dest) {
-            showError("Selection Error", "Source and destination stations must be different");
+            showError("Selection Error",
+                    "Source and destination stations must be different");
             return;
         }
 
@@ -342,6 +450,9 @@ public class SmartRailGUI extends Application implements TrainGUI {
         }
     }
 
+    /**
+     * Starts simulation threads for all components.
+     */
     private void startSimulation() {
         for (Component component : components) {
             Thread thread = new Thread(component);
@@ -350,6 +461,12 @@ public class SmartRailGUI extends Application implements TrainGUI {
         }
     }
 
+    /**
+     * Shows an error dialog to the user.
+     * Ensures dialog is shown on JavaFX Application Thread.
+     * @param title Error dialog title
+     * @param message Error message to display
+     */
     private void showError(String title, String message) {
         Platform.runLater(() -> {
             Alert alert = new Alert(AlertType.ERROR);
@@ -361,6 +478,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
     }
 
     // TrainGUI Interface Implementation
+    // Each method ensures thread-safety using Platform.runLater()
     @Override
     public void updateTrain(Train train) {
         Platform.runLater(() -> {
@@ -426,6 +544,10 @@ public class SmartRailGUI extends Application implements TrainGUI {
         });
     }
 
+    /**
+     * Main entry point for the GUI application.
+     * @param args Command line arguments (config file path)
+     */
     public static void main(String[] args) {
         launch(args);
     }
