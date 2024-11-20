@@ -184,7 +184,7 @@ public class SmartRailGUI extends Application implements TrainGUI {
         gc.setLineWidth(2);
         gc.strokeRect(x - 15, y - 15, 30, 30);
 
-        gc.setFill(Color.WHITE);
+        gc.setFill(Color.BLACK);
         gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
         gc.fillText(station.getName(), x, y + 5);
     }
@@ -209,10 +209,10 @@ public class SmartRailGUI extends Application implements TrainGUI {
 
         gc.setFill(trainColor);
         if (trainColor != Color.TRANSPARENT) {
-            gc.fillOval(x - 10, y - 10, 20, 20);
+            gc.fillOval(x - 15, y - 15, 30, 30); // Increase the size of the train
             gc.setStroke(Color.BLACK);
             gc.setLineWidth(2);
-            gc.strokeOval(x - 10, y - 10, 20, 20);
+            gc.strokeOval(x - 15, y - 15, 30, 30);
         }
     }
 

@@ -7,8 +7,8 @@ public class Track extends Component {
     private final double startX, startY, endX, endY;
     private final int segments;
     private Set<String> processedMessageIds = new HashSet<>();
-    private static final int MOVEMENT_STEPS = 100;
-    private static final long MOVEMENT_DELAY = 1000; // 1 second delay between steps
+    private static final int MOVEMENT_STEPS = 50;
+    private static final long MOVEMENT_DELAY = 500;
 
     public Track(double startX, double startY, double endX, double endY, int segments) {
         super(startX, startY);

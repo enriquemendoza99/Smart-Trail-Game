@@ -18,7 +18,7 @@ public class Train extends Component {
     private List<Component> currentPath;
     private int currentPathIndex;
     private TrainGUI gui;
-    private static final long MOVEMENT_DELAY = 1000; // 1 second delay between steps
+    private static final long MOVEMENT_DELAY = 500; // 1 second delay between steps
 
     public Train(double x, double y, TrainGUI gui) {
         super(x, y);

@@ -84,7 +84,7 @@ public class ConfigurationLoader {
 
             // Add light at track midpoint if segment length > threshold
             double length = Math.hypot(x2 - x1, y2 - y1);
-            if (length > 2.0) {  // Add light for tracks longer than 2 units
+            if (length > 2.0) {
                 double midX = (x1 + x2) / 2;
                 double midY = (y1 + y2) / 2;
                 Light light = new Light(midX, midY);
@@ -151,17 +151,14 @@ public class ConfigurationLoader {
         }
 
         // Check for track crossings
-        List<Track> tracks = new ArrayList<>();
-        for (Component comp : components) {
-            if (comp instanceof Track) {
-                tracks.add((Track) comp);
-            }
-        }
+        for (int i = 0; i < components.size(); i++) {
+            if (!(components.get(i) instanceof Track)) continue;
+            Track t1 = (Track) components.get(i);
 
-        for (int i = 0; i < tracks.size(); i++) {
-            Track t1 = tracks.get(i);
-            for (int j = i + 1; j < tracks.size(); j++) {
-                Track t2 = tracks.get(j);
+            for (int j = i + 1; j < components.size(); j++) {
+                if (!(components.get(j) instanceof Track)) continue;
+                Track t2 = (Track) components.get(j);
+
                 if (tracksIntersect(t1, t2)) {
                     throw new IOException("Invalid configuration: tracks cross each other");
                 }
@@ -236,17 +233,4 @@ public class ConfigurationLoader {
     private String getLocationKey(double x, double y) {
         return String.format("%.2f,%.2f", x, y);
     }
-}
-
-class RailSystem {
-    private final List<Component> components;
-    private final List<Station> stations;
-
-    public RailSystem(List<Component> components, List<Station> stations) {
-        this.components = new ArrayList<>(components);
-        this.stations = new ArrayList<>(stations);
-    }
-
-    public List<Component> getComponents() { return components; }
-    public List<Station> getStations() { return stations; }
 }
