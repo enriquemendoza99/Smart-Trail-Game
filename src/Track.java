@@ -23,7 +23,7 @@ public class Track extends Component {
     //Number of steps for smooth train movement animation
     private static final int MOVEMENT_STEPS = 50;
     // Base delay between movement steps
-    private static final long MOVEMENT_DELAY = 50;
+    private static final long MOVEMENT_DELAY = 100;
 
     /**
      * Creates a new track section with specified endpoints and segments.
