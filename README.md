@@ -1,105 +1,98 @@
-# SmartRail Project Template Group 2 
+# SmartRail — Multi-threaded Rail Simulation
 
-Inside your project you should have the following structure:
-## At the top level:
-### README.md
-The SmartRail Simulator is a system that simulates a light rail network, 
-where trains interact directly with the tracks, switches, and lights. 
-The system is designed to be modular and flexible, where each component 
-is aware only of its immediate neighbors.
+A Java rail traffic simulation where autonomous trains navigate a network
+of stations, tracks, and switches using message-passing concurrency.
+Each component runs on its own thread and communicates exclusively
+through messages, modeling a distributed signaling system.
 
-The project has the following structure:
+## Project Structure
+src/
 
-    - Component: An abstract class that represents a component in the rail 
-                 network, such as a station, switch, or track.
-    - ConfigurationLoader: A class responsible for loading the configuration 
-                           file and validating the system's configuration.
-    - RailSystem: A class that represents the entire rail network, containing 
-                  the list of components and stations.
-    - Station: A class that represents a station in the rail network.
-    - Switch: A class that represents a switch in the rail network.
-    - Track: A class that represents a track segment in the rail network.
-    - Light: A class that represents a light in the rail network.
-    - Train: A class that represents a train in the rail network.
-    - Message: A class that represents a message exchanged between 
-               the components in the system.
-    - SmartRail: A class that contains the main method to start the application.
-    - SmartRailGUI: A class that provides the graphical user interface 
-                    (GUI) for the simulator.
+Component.java           — Abstract base class for all rail components
 
-The configuration file is a text file that describes the layout of the light 
-rail network. Each line in the file represents a station, switch, or track 
-segment. The format of the file is as follows:
+ConfigurationLoader.java — Parses and validates config files
 
-Station: station <x-coordinate> <y-coordinate>
-Switch: switch <x-coordinate> <y-coordinate>
-Track: track <x1> <y1> <x2> <y2> [<numberspaces>]
+Light.java                — Signal light component
 
-The <numberspaces> parameter for the track is optional and specifies the number 
-of equally spaced segments to be displayed on the track.
+Message.java              — Message types for inter-component communication
 
-User Interface
-    The SmartRail Simulator provides a graphical user interface (GUI) that 
-    allows the user to interact with the system. The GUI consists of a layout 
-    where the rail network is displayed, and a control panel on the right side 
-    that allows the user to select the source and destination stations, and add 
-    new trains to the system.
-    The user can add a new train by selecting the source and destination 
-    stations from box that its on the GUI, then clicking the "Add Train" button. 
-    The train will then be added to the system and its movement can be observed 
-    on the GUI
+RailSystem.java            — Container for the loaded rail network
 
-Assumptions
-    - The rail network does not have any rail crossings.
-    - Trains can only enter and exit the system at stations.
-    - All trains move at the same speed.
-    - Trains can only change direction at stations.
+SmartRail.java              — Application entry point
 
+SmartRailGUI.java            — JavaFX GUI and rendering
 
+Station.java                  — Station component
 
+Switch.java                    — Switch/turnout component
 
+Track.java                      — Track segment component
 
+Train.java                       — Train component with path finding
 
+TrainGUI.java                     — Interface for GUI callbacks
 
+example_config/
 
+simple.txt, sample.txt, single_switch.txt,
 
+branch_rejoin.txt, broken_crossing.txt,
 
+simple2.txt, simple_parallel.txt, uneven.txt
 
+doc/
 
-### .gitignore
-This file tells git which files to you should not track with version control
-### Jar file(s)
-Executable jar file(s) with all resources needed to run.
+Design Project 4.pdf
 
-## src/ folder
-This contains your source code, organized into one or more packages.
+## How to Run
 
-## doc/ folder
-Includes all documentation other than this README
+**With JavaFX SDK (required, not bundled with the JDK):**
+cd src
 
-### Object design diagram
+java --module-path "path\to\javafx-sdk-21\lib" --add-modules javafx.controls,javafx.fxml -cp ../out/production/<module-name> SmartRail ../example_config/simple.txt
 
-The object design document should be in PDF format.
-First page/slide is object diagram, with description of objects on the next page(s).
+Replace `path\to\javafx-sdk-21` with your JavaFX SDK location and
+`<module-name>` with your IntelliJ output folder name.
 
-On more complicated projects, you may need additional diagrams to
-clearly describe subcomponents.
+## How to Use
 
-### Other documentation
+1. Launch the simulation with a configuration file
+2. The rail network renders on the canvas — stations (green squares),
+   switches (orange circles), and tracks (black lines)
+3. Select a **Source Station** and **Destination Station** from the dropdowns
+4. Click **Add Train** to launch a new train
+5. Watch the train's status change color as it seeks a path, locks the
+   route, and moves to its destination
+6. Once the train arrives, the controls re-enable for the next train
 
-If you found it useful to document your projects in other ways (class
-diagrams, algorithm description, tables of events, etc.) put the
-documents here.
+## Color Legend
+- Station / Switch / Track: green/orange/black when free, red when locked
+- Train Idle: gray
+- Train Seeking Path: yellow
+- Train Locking Path: purple
+- Train Moving: green
 
-## resources/ folder
+## Configuration File Format
+station x y
 
-This is an optional folder that you'll include if you are using any
-resource files (sounds, images, etc.)
+switch x y
 
-## .github/ folder
-This folder may be automatically generated by the Github Classroom bot and updated when we change the autograder settings.
-You should not change anything here, but you may need to pull the changes from the server before you will be able to push your own code.
+track x1 y1 x2 y2 [segments]
+Lines starting with `#` are treated as comments.
 
-## example_config
-For the SmartRail project, this folder contains example configuration files you can use for testing your program. See the readme in this folder for more details.
-We may update the folder with additional files, so please leave this folder alone to avoid conflicts.
+## File Manifest
+
+1. `SmartRail.java` — Entry point, validates arguments and launches the GUI
+2. `SmartRailGUI.java` — JavaFX application, canvas rendering, train controls
+3. `Component.java` — Abstract base for all rail components with threading
+   and message inbox
+4. `Message.java` — Typed messages for path finding, locking, and movement
+5. `Station.java` — Endpoint component handling path requests and locking
+6. `Track.java` — Track segment with animated train movement
+7. `Switch.java` — Turnout component routing between main and alt tracks
+8. `Light.java` — Signal light component (RED/GREEN state)
+9. `Train.java` — Autonomous train with path finding, locking, and movement
+   state machine
+10. `ConfigurationLoader.java` — Parses config files and validates the network
+11. `RailSystem.java` — Container for loaded components and stations
+12. `TrainGUI.java` — Interface decoupling Train logic from GUI updates
